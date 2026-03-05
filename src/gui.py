@@ -24,7 +24,7 @@ class ThreatGUI:
         self.root = root
         self._icon_ico_path: Optional[Path] = None
         self._icon_images: List[PhotoImage] = []
-        self.root.title("Threat Dragon Threats & Mitigations Generator")
+        self.root.title("Threat Dragon AI Threats & Mitigations Generator")
         self.root.geometry("1200x670")
         self._set_app_icons()
 
