@@ -444,7 +444,6 @@ class ThreatGUI:
             llm_model=self.settings_vars["llmModel"].get().strip(),
             schema_path=self.default_schema_path,
             model_path=self.model_file,
-            model_file_label=self.model_file.name,
             log_level=log_level,
             ai_options=ai_options,
         )
@@ -468,7 +467,6 @@ class ThreatGUI:
         def worker() -> None:
             try:
                 run_threat_modeling(config, log_callback=self._log)
-                self._log("Generation completed.")
             except Exception as exc:
                 self._log(f"Error: {exc}")
             finally:

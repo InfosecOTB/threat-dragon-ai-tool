@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -17,11 +16,10 @@ from ai_client import AIClientOptions, generate_threats
 from utils import load_json, update_threats_in_file
 from validator import ThreatValidator, ValidationResult
 
-# Project paths (used for logs + default assets/schema locations).
+# Project paths (used for default assets/schema locations).
 # If you later package the app, consider switching these to importlib.resources.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ASSETS_DIR = PROJECT_ROOT / "assets"
-LOGS_DIR = PROJECT_ROOT / "logs"
 
 _LOGGER_NAME = "threat_modeling"
 
@@ -33,7 +31,6 @@ class RuntimeConfig:
     llm_model: str
     schema_path: Path
     model_path: Path
-    model_file_label: str
     log_level: int = logging.INFO
     ai_options: Optional[AIClientOptions] = None
 
@@ -59,25 +56,13 @@ def setup_logging(
 ) -> logging.Logger:
     """Create a fresh logger for a run.
 
-    - Always logs to a timestamped file under ./logs
-    - If `log_callback` is provided, also forwards log lines there
-    - If no callback is provided, logs to stderr as well
+    - If `log_callback` is provided, forwards log lines there
+    - If no callback is provided, logs to stderr
     """
-    LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_path = LOGS_DIR / f"threat_modeling_{timestamp}.log"
-
     logger = logging.getLogger(_LOGGER_NAME)
     logger.setLevel(logging.DEBUG)  # keep everything; handler levels decide output
     logger.propagate = False
     logger.handlers.clear()
-
-    file_handler = logging.FileHandler(log_path, encoding="utf-8")
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
-    )
-    logger.addHandler(file_handler)
 
     message_only = logging.Formatter("%(message)s")
 
@@ -123,7 +108,6 @@ def run_threat_modeling(
     schema = load_json(config.schema_path)
     model = load_json(config.model_path)
 
-    logger.info("Generating threats...")
     threats_data = generate_threats(schema, model, config.llm_model, ai_options)
 
     logger.debug("AI Response Details:")
@@ -149,7 +133,6 @@ def run_threat_modeling(
         validation_result = validator.validate_ai_response(
             model,
             ai_response_format,
-            config.model_file_label,
         )
         validator.print_summary(logger, validation_result)
     except Exception as exc:
@@ -158,6 +141,5 @@ def run_threat_modeling(
     logger.info("=" * 60)
     logger.info("THREAT MODELING PROCESS COMPLETED")
     logger.info("=" * 60)
-    logger.info("\n")
     logger.info("\n")
     return validation_result

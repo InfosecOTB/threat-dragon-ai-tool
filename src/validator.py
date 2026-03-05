@@ -5,17 +5,9 @@ Validates AI-generated threat models against original specifications.
 Categories: INFO (missing elements), WARNINGS (quality issues), ERRORS (no overlap).
 """
 
-from datetime import datetime
-from pathlib import Path
 from typing import Dict, List
 from dataclasses import dataclass
 import logging
-
-# Define absolute paths
-PROJECT_ROOT = Path(__file__).parent.parent
-LOGS_DIR = PROJECT_ROOT / "logs"
-LOGGER_NAME = "threat_modeling"
-
 
 @dataclass
 class ValidationResult:
@@ -31,12 +23,7 @@ class ValidationResult:
 class ThreatValidator:
     """Validates AI-generated threat models against original specifications."""
     
-    def __init__(self, logs_dir: Path = LOGS_DIR):
-        """Initialize the threat validator."""
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        self.logs_dir = logs_dir
-    
-    def validate_ai_response(self, model: dict, ai_response: List[dict], filename: str) -> ValidationResult:
+    def validate_ai_response(self, model: dict, ai_response: List[dict]) -> ValidationResult:
         """Validate AI response against the original threat model."""
         # Extract in-scope elements that should have threats
         in_scope_elements = self._get_in_scope_elements(model)
@@ -69,8 +56,6 @@ class ThreatValidator:
             info=info,
             stats=stats
         )
-        
-        self._write_log(result, filename, ai_response)
         return result
     
     def _get_in_scope_elements(self, model: dict) -> List[str]:
@@ -119,58 +104,6 @@ class ThreatValidator:
             'total_threats': total_threats,
             'coverage_percent': round(coverage, 1)
         }
-    
-    def _write_log(self, result: ValidationResult, filename: str, ai_response: List[dict]):
-        """Write detailed validation log to file."""
-        logger = logging.getLogger(LOGGER_NAME)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_path = self.logs_dir / f"validation_log_{filename.replace('.json', '')}_{timestamp}.log"
-        
-        content = f"""THREAT VALIDATION LOG
-{'='*60}
-Timestamp: {timestamp}
-Model File: {filename}
-
-VALIDATION NOTES:
-- Trust boundary boxes and curves are excluded from validation
-- Missing elements are informational, not errors
-- Invalid IDs (out of scope) are warnings, not errors
-- Only completely different IDs (no overlap with model) are validation errors
-
-VALIDATION SUMMARY:
-Overall Status: {'✅ VALID' if result.is_valid else '❌ INVALID'}
-Elements in Scope: {result.stats['in_scope_elements']}
-Elements with Threats: {result.stats['elements_with_threats']}
-Total Threats Generated: {result.stats['total_threats']}
-Coverage: {result.stats['coverage_percent']}%
-
-VALIDATION RESULTS:
-"""
-        
-        if not result.is_valid:
-            content += f"\n❌ VALIDATION ERRORS:\n"
-            content += f"  • AI response contains completely different IDs with no overlap to model elements\n"
-        
-        if result.warnings:
-            content += f"\n⚠️  WARNINGS ({len(result.warnings)}):\n"
-            for warning in result.warnings:
-                content += f"  • {warning}\n"
-        
-        if result.info:
-            content += f"\nℹ️  INFO ({len(result.info)}):\n"
-            for info_item in result.info:
-                content += f"  • {info_item}\n"
-        
-        content += f"\nAI RESPONSE PREVIEW:\n"
-        content += f"Total Responses: {len(ai_response)}\n"
-        content += f"Response IDs: {[item.get('id') for item in ai_response]}\n"
-        
-        try:
-            with open(str(log_path), 'w', encoding='utf-8') as f:
-                f.write(content)
-            logger.info("Validation log saved to: %s", log_path)
-        except Exception as e:
-            logger.error("Failed to save validation log: %s", str(e))
     
     def print_summary(self, logger: logging.Logger, result: ValidationResult):
         """Print a formatted validation summary to console."""
