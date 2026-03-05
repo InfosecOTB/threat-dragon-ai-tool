@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
 
-from ai_client import AIClientOptions, generate_threats
+from ai_client import generate_threats
 from utils import load_json, update_threats_in_file
 from validator import ThreatValidator, ValidationResult
 
@@ -31,8 +31,12 @@ class RuntimeConfig:
     llm_model: str
     schema_path: Path
     model_path: Path
+    api_key: str = ""
+    temperature: float = 0.1
+    response_format: bool = False
+    api_base: Optional[str] = None
+    timeout: int = 900
     log_level: int = logging.INFO
-    ai_options: Optional[AIClientOptions] = None
 
 
 class CallbackLogHandler(logging.Handler):
@@ -87,7 +91,6 @@ def run_threat_modeling(
 ) -> Optional[ValidationResult]:
     """Run threat generation, write results back to the model file, validate output."""
     logger = setup_logging(log_level=config.log_level, log_callback=log_callback)
-    ai_options = config.ai_options or AIClientOptions()
 
     logger.info("=" * 60)
     logger.info("STARTING AI-POWERED THREAT MODELING TOOL")
@@ -108,7 +111,17 @@ def run_threat_modeling(
     schema = load_json(config.schema_path)
     model = load_json(config.model_path)
 
-    threats_data = generate_threats(schema, model, config.llm_model, ai_options)
+    threats_data, response_cost = generate_threats(
+        schema=schema,
+        model=model,
+        api_key=config.api_key,
+        model_name=config.llm_model,
+        temperature=config.temperature,
+        response_format=config.response_format,
+        api_base=config.api_base,
+        timeout=config.timeout,
+    )
+    logger.info("Estimated response cost: %s", response_cost)
 
     logger.debug("AI Response Details:")
     for elem_id, threats in threats_data.items():

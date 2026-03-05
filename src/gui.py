@@ -16,7 +16,6 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import PRIMARY, SECONDARY, SUCCESS
 from dotenv import load_dotenv
 
-from ai_client import AIClientOptions
 from runtime import ASSETS_DIR, PROJECT_ROOT, RuntimeConfig, run_threat_modeling
 
 
@@ -142,15 +141,18 @@ class ThreatGUI:
         self.root.config(menu=menubar)
 
     def _build_layout(self) -> None:
+        left_column_max_width = 600
         main_frame = ttk.Frame(self.root, padding=10)
         main_frame.grid(row=0, column=0, sticky="nsew")
-        main_frame.columnconfigure(0, weight=1, minsize=600)
+        # Keep the left column capped to a constant width while resizing.
+        main_frame.columnconfigure(0, weight=0, minsize=left_column_max_width)
         main_frame.columnconfigure(1, weight=1)
         main_frame.rowconfigure(0, weight=0)
         main_frame.rowconfigure(1, weight=1)
 
         left = ttk.Frame(main_frame)
         left.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=5, pady=5)
+        left.configure(width=left_column_max_width)
         left.columnconfigure(0, weight=1)
 
         logo_frame = ttk.Frame(left, padding=10)
@@ -433,19 +435,16 @@ class ThreatGUI:
         log_level_name = self.settings_vars["logLevel"].get().strip().upper() or "INFO"
         log_level = getattr(logging, log_level_name, logging.INFO)
 
-        ai_options = AIClientOptions(
-            temperature=temperature,
-            response_format=self.settings_vars["responseFormat"].get(),
-            api_base=self.settings_vars["apiBase"].get().strip() or None,
-            timeout=timeout,
-        )
-
         return RuntimeConfig(
             llm_model=self.settings_vars["llmModel"].get().strip(),
             schema_path=self.default_schema_path,
             model_path=self.model_file,
+            api_key=self.settings_vars["apiKey"].get().strip(),
+            temperature=temperature,
+            response_format=self.settings_vars["responseFormat"].get(),
+            api_base=self.settings_vars["apiBase"].get().strip() or None,
+            timeout=timeout,
             log_level=log_level,
-            ai_options=ai_options,
         )
 
     def run_main_script(self) -> None:
@@ -461,8 +460,7 @@ class ThreatGUI:
 
         self._running = True
         self.run_button.configure(state="disabled")
-        self._append_console("=" * 60)
-        self._append_console("Starting generation...")
+
 
         def worker() -> None:
             try:
@@ -477,7 +475,6 @@ class ThreatGUI:
     def _finish_run(self) -> None:
         self._running = False
         self.run_button.configure(state="normal")
-        self._append_console("=" * 60)
 
 
 def start_gui() -> None:

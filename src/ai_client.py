@@ -1,113 +1,112 @@
-"""Simplified AI client for LLM-powered threat generation."""
+"""AI Client for LLM-powered threat generation using LiteLLM."""
 
 import json
 import re
 import logging
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Tuple
 import litellm
 from models import AIThreatsResponseList
 
-logger = logging.getLogger(__name__)
-
-# Define absolute path to prompt file
 PROJECT_ROOT = Path(__file__).parent.parent
 PROMPT_FILE = PROJECT_ROOT / "prompt.txt"
 
 
-@dataclass
-class AIClientOptions:
-    """Runtime options used for LiteLLM completion requests."""
-
-    temperature: float = 0.1
-    response_format: bool = True
-    api_base: Optional[str] = None
-    timeout: int = 14400
-    max_tokens: int = 24000
-    enable_json_schema_validation: bool = True
-
-
-def generate_threats(
-    schema: Dict,
-    model: Dict,
-    model_name: str,
-    options: Optional[AIClientOptions] = None,
-) -> Dict[str, List[Dict]]:
-    """Generate AI-powered threats for all in-scope components."""
+def generate_threats(schema: Dict, model: Dict, api_key: str, model_name: str, temperature: float = 0.1, response_format: bool = False, api_base: str = None, timeout: int = 900) -> Tuple[Dict[str, List[Dict]], float]:
+    """Generate AI-powered threats for all in-scope components.
+    
+    Returns:
+        tuple: (threats_data, response_cost)
+    """
     logger = logging.getLogger("threat_modeling.ai_client")
     logger.info("Starting threat generation...")
-    options = options or AIClientOptions()
     
-  
-    # Prepare prompt
+    # Load prompt template and inject schema/model data
     prompt_template = PROMPT_FILE.read_text(encoding='utf-8')
     
     system_prompt = prompt_template.format(
-        schema_json=json.dumps(schema, indent=2),
-        model_json=json.dumps(model, indent=2),
+        schema_json=json.dumps(schema, indent=2, ensure_ascii=False),
+        model_json=json.dumps(model, indent=2, ensure_ascii=False)
     )
     
+
+    logger.info(f"Calling LLM: {model_name}")
+
+    # Configure JSON schema validation
+    litellm.enable_json_schema_validation = response_format
+    litellm.drop_params = True
+
+    # Prepare messages for LLM API call
+    messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": "Analyze provided Threat Dragon model, generate threats and mitigations for elements and return a valid JSON following the rules."}
+        ]
+
+    logger.info(f"System token count: {litellm.token_counter(model=model_name, messages=messages)}")
+
     try:
-        logger.info(f"Calling LLM: {model_name}")
-
-        # ============================================================================
-        # CONFIGURATION: Adjust these settings based on your LLM provider
-        # See README.md "Tested LLM Providers" section for recommended configurations
-        # ============================================================================
-        
-        # JSON Schema Validation: Enable for OpenAI, xAI (comment out for Anthropic, Gemini, and some Novita models)
-        litellm.enable_json_schema_validation = options.enable_json_schema_validation
-        litellm.drop_params = True
-
-        completion_kwargs = {
-            "model": model_name,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": "Analyze provided Threat Dragon model, generate threats and mitigations for elements and return a valid JSON following the rules.",
-                },
-            ],
-            "temperature": options.temperature,
-            "timeout": options.timeout,
-            "max_tokens": options.max_tokens,
-        }
-        if options.response_format:
-            # Requires JSON schema validation support from the LLM provider.
-            completion_kwargs["response_format"] = AIThreatsResponseList
-        if options.api_base:
-            completion_kwargs["api_base"] = options.api_base
-
-        response = litellm.completion(**completion_kwargs)
-        
-        # Parse response
-        logger.debug(f"/\n\nResponse: {response}")
-        try:
-            ai_response = AIThreatsResponseList.model_validate_json(response.choices[0].message.content)
-        except Exception:
-            logger.warning("LLM returned invalid JSON. Trying to extract JSON...")
-            # Try to find JSON substring
-            match = re.search(r"\{.*\}", response.choices[0].message.content, re.S)
-            if match:
-                ai_response = AIThreatsResponseList.model_validate_json(match.group())
-            else:
-                raise
-
-        
-        logger.debug(f"/\n\nAI Response: {ai_response}")
-        
-        # Convert to expected format
-        threats_data = {
-            item.id: [threat.model_dump() for threat in item.threats] 
-            for item in ai_response.items
-        }
-        
-        total_threats = sum(len(threats) for threats in threats_data.values())
-        logger.info(f"Generated {total_threats} threats for {len(threats_data)} elements")
-        
-        return threats_data
-        
+        max_tokens = int(litellm.get_max_tokens(model=model_name))
     except Exception as e:
-        logger.error(f"LLM error: {str(e)}")
-        raise ValueError(f"Error calling LLM: {str(e)}")
+        logger.error(f"Problem with getting max tokens: Using default value of 100000.")
+        max_tokens = 100000
+
+    # Build API completion parameters
+    completion_params = {
+        "model": model_name,
+        "messages": messages,
+        "temperature": temperature,
+        "timeout": timeout,
+        "max_tokens": max_tokens,
+        "response_format": AIThreatsResponseList if response_format else None
+    }
+    logger.info(
+        "Completion parameters:\n"
+        '  "model": %s\n'
+        '  "temperature": %s\n'
+        '  "timeout": %s\n'
+        '  "response_format": %s',
+        model_name,
+        temperature,
+        timeout,
+        response_format,
+    )
+
+    if api_key:
+        completion_params["api_key"] = api_key
+
+    if api_base:
+        completion_params["api_base"] = api_base
+    
+    # Call LLM API
+    response = litellm.completion(**completion_params)
+
+    # Extract response cost
+    response_cost = response._hidden_params.get("response_cost", 0.0)
+    logger.info(f"Response cost: {response_cost}")
+    logger.debug(f"\n\nResponse: {response}")
+    
+    # Parse and validate AI response
+    try:
+        ai_response = AIThreatsResponseList.model_validate_json(response.choices[0].message.content)
+    except Exception:
+        # Fallback: try to extract JSON from markdown or plain text
+        logger.warning("LLM returned invalid JSON. Trying to extract JSON...")
+        # Look for JSON object containing "items" key (our expected format)
+        match = re.search(r'\{\s*"items"\s*:\s*\[.*?\]\s*\}', response.choices[0].message.content, re.S)
+        if match:
+            ai_response = AIThreatsResponseList.model_validate_json(match.group())
+        else:
+            raise
+    
+    logger.debug(f"\n\nAI Response: {ai_response}")
+    
+    # Convert Pydantic models to dictionaries
+    threats_data = {
+        item.id: [threat.model_dump() for threat in item.threats] 
+        for item in ai_response.items
+    }
+    
+    total_threats = sum(len(threats) for threats in threats_data.values())
+    logger.info(f"Generated {total_threats} threats for {len(threats_data)} elements")
+    
+    return threats_data, response_cost
