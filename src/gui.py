@@ -36,11 +36,13 @@ class ThreatGUI:
         self.model_data = None
 
         self._running = False
+        self._console_inline_progress = False
         self._load_defaults_from_env()
 
         self._setup_style()
         self._build_menu()
         self._build_layout()
+        self.root.protocol("WM_DELETE_WINDOW", self.on_exit_request)
 
     def _set_app_icons(self) -> None:
         self._icon_ico_path = ASSETS_DIR / "favicon.ico"
@@ -127,7 +129,7 @@ class ThreatGUI:
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label="Open Model (.json)", command=self.open_model)
         file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self.root.quit)
+        file_menu.add_command(label="Exit", command=self.on_exit_request)
 
         run_menu = tk.Menu(menubar, tearoff=0)
         run_menu.add_command(label="Generate Threat & Mitigation", command=self.run_main_script)
@@ -347,13 +349,28 @@ class ThreatGUI:
 
     def _append_console(self, text: str) -> None:
         self.console.configure(state="normal")
-        self.console.insert("end", f"{text}\n")
+        if text.startswith("\r"):
+            inline_text = text[1:]
+            if self._console_inline_progress:
+                line_start = self.console.index("end-1c linestart")
+                line_end = self.console.index("end-1c lineend")
+                self.console.delete(line_start, line_end)
+                self.console.insert(line_start, inline_text)
+            else:
+                self.console.insert("end", inline_text)
+                self._console_inline_progress = True
+        else:
+            if self._console_inline_progress:
+                self.console.insert("end", "\n")
+                self._console_inline_progress = False
+            self.console.insert("end", f"{text}\n")
         self.console.see("end")
         self.console.configure(state="disabled")
 
     def clear_console(self) -> None:
         self.console.configure(state="normal")
         self.console.delete("1.0", "end")
+        self._console_inline_progress = False
         self.console.configure(state="disabled")
 
     def _log(self, text: str) -> None:
@@ -420,6 +437,82 @@ class ThreatGUI:
         about.grab_set()
         about.focus_set()
 
+    def _show_generation_warning(self) -> bool:
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Warning")
+        dialog.transient(self.root)
+        dialog.resizable(False, False)
+        self._apply_window_icon(dialog)
+
+        result = {"ok": False}
+
+        def on_cancel(event=None) -> None:
+            dialog.destroy()
+
+        def on_ok(event=None) -> None:
+            result["ok"] = True
+            dialog.destroy()
+
+        container = ttk.Frame(dialog, padding=16)
+        container.grid(row=0, column=0, sticky="nsew")
+        container.columnconfigure(0, weight=1)
+
+        header = ttk.Frame(container)
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        ttk.Label(
+            header,
+            text="*** IMPORTANT: Please Read Before You Continue ***",
+            font=("Segoe UI", 14, "bold"),
+            bootstyle="warning",
+        ).pack(side="left", anchor="w")
+
+        warning_items = [
+            "Make sure the Threat Dragon application is closed before updating the JSON file, as editing it while open may cause data loss.",
+            "Generating Threats and Mitigations sends the entire Threat Model to the selected AI for analysis as part of the prompt. Please review any security or privacy implications.",
+            "Currently, only the STRIDE methodology is supported. Using this tool with threat models based on other methodologies may lead to unexpected results.",
+            "Existing Threats and Mitigations will be reviewed and may be kept, updated, or removed by the AI. Consider taking a backup of your Threat Model file before continuing.",
+            "You can run the Generating Threats and Mitigations process multiple times with the same or different AI service. Each run will re-evaluate current items and may add new ones.",
+        ]
+
+        next_row = 1
+        for item in warning_items:
+            ttk.Label(
+                container,
+                text=f"* {item}",
+                justify="left",
+                wraplength=620,
+            ).grid(row=next_row, column=0, sticky="w", pady=(0, 8))
+            next_row += 1
+
+        ttk.Label(
+            container,
+            text="Click Cancel to exit or OK to continue.",
+            font=("Segoe UI", 10, "bold"),
+        ).grid(row=next_row, column=0, sticky="w", pady=(4, 12))
+        next_row += 1
+
+        buttons = ttk.Frame(container)
+        buttons.grid(row=next_row, column=0, sticky="e")
+        ttk.Button(buttons, text="Cancel", bootstyle=SECONDARY, command=on_cancel).pack(
+            side="left", padx=(0, 8)
+        )
+        ttk.Button(buttons, text="OK", bootstyle=PRIMARY, command=on_ok).pack(side="left")
+
+        dialog.protocol("WM_DELETE_WINDOW", on_cancel)
+        dialog.bind("<Escape>", on_cancel)
+        dialog.bind("<Return>", on_ok)
+
+        dialog.update_idletasks()
+        width, height = 680, 380
+        x_pos = self.root.winfo_x() + (self.root.winfo_width() - width) // 2
+        y_pos = self.root.winfo_y() + (self.root.winfo_height() - height) // 2
+        dialog.geometry(f"{width}x{height}+{max(x_pos, 0)}+{max(y_pos, 0)}")
+
+        dialog.grab_set()
+        dialog.focus_set()
+        self.root.wait_window(dialog)
+        return result["ok"]
+
     def _build_runtime_config(self) -> RuntimeConfig:
         if not self.model_file:
             raise ValueError("Please load a threat model JSON first.")
@@ -453,10 +546,14 @@ class ThreatGUI:
 
         try:
             config = self._build_runtime_config()
-            self._set_api_env(config.llm_model, self.settings_vars["apiKey"].get())
         except Exception as exc:
             messagebox.showerror("Invalid Configuration", str(exc))
             return
+
+        if not self._show_generation_warning():
+            return
+
+        self._set_api_env(config.llm_model, self.settings_vars["apiKey"].get())
 
         self._running = True
         self.run_button.configure(state="disabled")
@@ -475,6 +572,10 @@ class ThreatGUI:
     def _finish_run(self) -> None:
         self._running = False
         self.run_button.configure(state="normal")
+
+    def on_exit_request(self) -> None:
+        if messagebox.askyesno("Exit", "Do you want to exit the application?"):
+            self.root.destroy()
 
 
 def start_gui() -> None:

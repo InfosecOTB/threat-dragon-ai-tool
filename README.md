@@ -1,6 +1,6 @@
 # AI-Powered Threat Modeling Tool
 
-![td-ai](assets/td-ai-part2.png)
+![td-ai](assets/td-ai.png)
 
 An intelligent threat modeling application that uses Large Language Models (LLMs) to automatically generate security threats and their mitigation proposals for Threat Dragon models.
 

@@ -3,6 +3,8 @@
 import json
 import re
 import logging
+import threading
+import time
 from pathlib import Path
 from typing import Dict, List, Tuple
 import litellm
@@ -29,9 +31,6 @@ def generate_threats(schema: Dict, model: Dict, api_key: str, model_name: str, t
         model_json=json.dumps(model, indent=2, ensure_ascii=False)
     )
     
-
-    logger.info(f"Calling LLM: {model_name}")
-
     # Configure JSON schema validation
     litellm.enable_json_schema_validation = response_format
     litellm.drop_params = True
@@ -59,17 +58,7 @@ def generate_threats(schema: Dict, model: Dict, api_key: str, model_name: str, t
         "max_tokens": max_tokens,
         "response_format": AIThreatsResponseList if response_format else None
     }
-    logger.info(
-        "Completion parameters:\n"
-        '  "model": %s\n'
-        '  "temperature": %s\n'
-        '  "timeout": %s\n'
-        '  "response_format": %s',
-        model_name,
-        temperature,
-        timeout,
-        response_format,
-    )
+
 
     if api_key:
         completion_params["api_key"] = api_key
@@ -77,8 +66,47 @@ def generate_threats(schema: Dict, model: Dict, api_key: str, model_name: str, t
     if api_base:
         completion_params["api_base"] = api_base
     
+    params_log = (
+        "Completion parameters:\n"
+        f'  "model": {model_name}\n'
+        f'  "temperature": {temperature}\n'
+        f'  "response_format": {response_format}\n'
+        f'  "api_base": {api_base}\n'
+        f'  "timeout": {timeout}'
+    )
+    logger.info(params_log)
+
     # Call LLM API
-    response = litellm.completion(**completion_params)
+    logger.info(f"Calling LLM: {model_name}")
+    request_started_at = time.monotonic()
+    progress_stop = threading.Event()
+    def log_completion_progress() -> None:
+        progress_chars = 0
+        line_width = 60
+        while not progress_stop.wait(1):
+            elapsed_seconds = int(time.monotonic() - request_started_at)
+            progress_chars += 1
+            if progress_chars > line_width:
+                progress_chars = 1
+            dots = "." * progress_chars
+            padding = " " * (line_width - progress_chars)
+            logger.info(
+                "\rGeneration in progress [%s%s] (%ss elapsed)",
+                dots,
+                padding,
+                elapsed_seconds,
+            )
+
+    progress_thread = threading.Thread(target=log_completion_progress, daemon=True)
+    progress_thread.start()
+    try:
+        response = litellm.completion(**completion_params)
+    finally:
+        progress_stop.set()
+        progress_thread.join(timeout=0.2)
+
+    total_wait_seconds = int(time.monotonic() - request_started_at)
+    logger.info(f"LLM response received after {total_wait_seconds}s.")
 
     # Extract response cost
     response_cost = response._hidden_params.get("response_cost", 0.0)
