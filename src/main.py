@@ -1,7 +1,4 @@
-"""App entry point.
-
-Keep this file tiny: it should just wire things together and start the UI.
-"""
+"""App entry point."""
 
 from gui import start_gui
 

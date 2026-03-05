@@ -1,23 +1,15 @@
-"""Runtime orchestration for threat generation.
-
-This module should stay UI-agnostic: no Tkinter imports, no widget code.
-The GUI (or a future CLI) calls `run_threat_modeling()` and optionally
-provides a `log_callback` to receive log lines.
-"""
+"""Runtime flow for generating and validating threats."""
 
 from __future__ import annotations
-
 import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
-
 from ai_client import generate_threats
 from utils import load_json, update_threats_in_file
 from validator import ThreatValidator, ValidationResult
 
-# Project paths (used for default assets/schema locations).
-# If you later package the app, consider switching these to importlib.resources.
+# Project paths used across runtime and GUI.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ASSETS_DIR = PROJECT_ROOT / "assets"
 
@@ -26,7 +18,7 @@ _LOGGER_NAME = "threat_modeling"
 
 @dataclass(frozen=True, slots=True)
 class RuntimeConfig:
-    """Configuration for a single threat-modeling run."""
+    """Settings for one threat-generation run."""
 
     llm_model: str
     schema_path: Path
@@ -40,7 +32,7 @@ class RuntimeConfig:
 
 
 class CallbackLogHandler(logging.Handler):
-    """Forward formatted log records to a callback."""
+    """Send formatted log lines to a callback."""
 
     def __init__(self, callback: Callable[[str], None]) -> None:
         super().__init__()
@@ -58,13 +50,9 @@ def setup_logging(
     log_level: int,
     log_callback: Optional[Callable[[str], None]] = None,
 ) -> logging.Logger:
-    """Create a fresh logger for a run.
-
-    - If `log_callback` is provided, forwards log lines there
-    - If no callback is provided, logs to stderr
-    """
+    """Create a logger for one run."""
     logger = logging.getLogger(_LOGGER_NAME)
-    logger.setLevel(logging.DEBUG)  # keep everything; handler levels decide output
+    logger.setLevel(logging.DEBUG)  # Handlers decide what is shown.
     logger.propagate = False
     logger.handlers.clear()
 
@@ -89,14 +77,16 @@ def run_threat_modeling(
     *,
     log_callback: Optional[Callable[[str], None]] = None,
 ) -> Optional[ValidationResult]:
-    """Run threat generation, write results back to the model file, validate output."""
+    """Run generation, save threats, and validate the output."""
     logger = setup_logging(log_level=config.log_level, log_callback=log_callback)
 
     logger.info("=" * 60)
     logger.info("STARTING AI-POWERED THREAT MODELING TOOL")
     logger.info("=" * 60)
     logger.info(
-        "Configuration: model=%s, schema=%s, model_file=%s",
+        "Configuration: model=%s", 
+        "schema_file=%s", 
+        "model_file=%s",
         config.llm_model,
         config.schema_path.name,
         config.model_path.name,
@@ -151,6 +141,7 @@ def run_threat_modeling(
     except Exception as exc:
         logger.error("Validation error: %s", exc)
 
+    logger.info("\n")
     logger.info("=" * 60)
     logger.info("THREAT MODELING PROCESS COMPLETED")
     logger.info("=" * 60)

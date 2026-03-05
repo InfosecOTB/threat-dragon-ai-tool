@@ -6,7 +6,7 @@
 
 A desktop application that automatically generates STRIDE threats and mitigations for [OWASP Threat Dragon](https://owasp.org/www-project-threat-dragon/) models using LLMs.
 
-You open a Threat Dragon `.json` model file, pick an AI provider, and the tool analyzes the entire data-flow diagram — trust boundaries, flows, zones, encryption flags — then writes threats and mitigations directly back into the file. Open it in Threat Dragon and the threats are already there.
+You open a Threat Dragon `.json` model file, pick an AI provider, and the tool analyzes the entire data-flow diagram - trust boundaries, flows, zones, encryption flags - then writes threats and mitigations directly back into the file. Open it in Threat Dragon and the threats are already there.
 
 ## Prerequisites
 - An API key for at least one supported LLM provider
@@ -16,6 +16,8 @@ You open a Threat Dragon `.json` model file, pick an AI provider, and the tool a
 The application uses the LiteLLM library, so any provider/model supported by LiteLLM should work. Use the [LiteLLM naming convention](https://docs.litellm.ai/docs/providers) (`provider/model`).
 
 Generating threats and mitigations is a complex task that requires capable models. For good results, use a model with at least 400M parameters. The best results were achieved with Anthropic Claude, OpenAI GPT, and xAI Grok. Self-hosted DeepSeek and Qwen also produced good results in testing.
+
+You can read more about testing different models and its results in my blog [AI-Powered Threat Modeling with OWASP Threat Dragon – Part 2: Generating Threats with Artificial Intelligence](https://infosecotb.com/ai-powered-threat-modeling-with-owasp-threat-dragon-part-2-generating-threats-with-artificial-intelligence/) 
 
 ## Installation
 Copy `td-ai-tool.exe` to a folder and run it. Creating a `.env` file in the same folder is optional; if present, the application will read settings from it. You can also enter settings in the application, but they are lost when you close it. For security and simplicity, saving settings from inside the application is not supported at this time.
@@ -34,6 +36,7 @@ Copy `td-ai-tool.exe` to a folder and run it. Creating a `.env` file in the same
 
 Example:
 
+```dotenv
 API_KEY="sk-proj-your_key"
 LLM_MODEL=openai/gpt-5.2
 TEMPERATURE=0.1
@@ -41,14 +44,15 @@ RESPONSE_FORMAT=true
 API_BASE_URL=
 LOG_LEVEL=INFO
 TIMEOUT=900
+```
 
 ### Workflow
 
-1. **Open a model** — Click *Open Model* (or File → Open Model) and select a Threat Dragon `.json` file.
-2. **Configure** — Adjust the LLM model, temperature, API key and other settings in the left panel if needed. Settings from `.env` are pre-filled.
-3. **Generate** — Click *Generate Threat and Mitigations*. A warning dialog will appear — read it, then confirm.
-4. **Wait** — The console on the right shows progress. Depending on the model size and LLM provider, this can take from a few seconds to several minutes.
-5. **Done** — The tool writes threats directly into your `.json` file and runs a validation pass. Open the file in Threat Dragon to see the results.
+1. **Open a model** - Click *Open Model* (or File → Open Model) and select a Threat Dragon `.json` file.
+2. **Configure** - Adjust the LLM model, temperature, API key and other settings in the left panel if needed. Settings from `.env` are pre-filled.
+3. **Generate** - Click *Generate Threat and Mitigations*. A warning dialog will appear - read it, then confirm.
+4. **Wait** - The console on the right shows progress. Depending on the model size and LLM provider, this can take from a few seconds to several minutes.
+5. **Done** - The tool writes threats directly into your `.json` file and runs a validation pass. Open the file in Threat Dragon to see the results.
 
 ### Things to keep in mind
 
@@ -74,7 +78,7 @@ The GUI collects user settings and kicks off `run_threat_modeling()` on a backgr
 1. Loads the Threat Dragon JSON model and the OWASP schema.
 2. Injects both into a system prompt (`prompt.txt`) that instructs the LLM to analyze the data-flow diagram using STRIDE.
 3. Calls the LLM through LiteLLM and parses the structured JSON response (with a regex fallback if the model returns markdown-wrapped output).
-4. Merges the generated threats back into the original file — each threat gets a UUID, affected cells get a red stroke indicator, and the `hasOpenThreats` flag is updated.
+4. Merges the generated threats back into the original file - each threat gets a UUID, affected cells get a red stroke indicator, and the `hasOpenThreats` flag is updated.
 5. Validates the response: checks element ID overlap, coverage, threat quality, and prints a summary.
 
 ### Project structure
@@ -99,11 +103,20 @@ threat-dragon-ai-tool/
 
 ### Key dependencies
 
-- **[LiteLLM](https://github.com/BerriAI/litellm)** — unified API wrapper that lets you swap LLM providers without changing code.
-- **[Pydantic](https://docs.pydantic.dev/)** — validates and parses the structured JSON that comes back from the LLM.
-- **[ttkbootstrap](https://ttkbootstrap.readthedocs.io/)** — modern-looking Tkinter theme for the GUI.
-- **[python-dotenv](https://github.com/theskumar/python-dotenv)** — loads `.env` defaults on startup.
+- **[LiteLLM](https://github.com/BerriAI/litellm)** - unified API wrapper that lets you swap LLM providers without changing code.
+- **[Pydantic](https://docs.pydantic.dev/)** - validates and parses the structured JSON that comes back from the LLM.
+- **[ttkbootstrap](https://ttkbootstrap.readthedocs.io/)** - modern-looking Tkinter theme for the GUI.
+- **[python-dotenv](https://github.com/theskumar/python-dotenv)** - loads `.env` defaults on startup.
 
-## License
+### License
+This project is licensed under the Apache 2.0 License - see the LICENSE file for details.
 
-Created by Piotr Kowalczyk — [infosecotb.com](https://infosecotb.com)
+### Acknowledgments
+- **[OWASP Threat Dragon](https://owasp.org/www-project-threat-dragon/)** for the excellent threat modeling framework
+- **[LiteLLM](https://github.com/BerriAI/litellm)** for seamless multi-LLM support
+- **[Pydantic](https://pydantic.dev/)** for robust data validation
+
+### Additional Resources
+For more information about cybersecurity and AI projects, visit my blog at https://infosecotb.com.
+
+

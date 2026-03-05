@@ -1,4 +1,4 @@
-"""Tkinter/ttkbootstrap GUI for the threat generation tool."""
+"""Desktop GUI for the threat generation tool."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class ThreatGUI:
         self._icon_ico_path: Optional[Path] = None
         self._icon_images: List[PhotoImage] = []
         self.root.title("Threat Dragon AI Threats & Mitigations Generator")
-        self.root.geometry("1200x670")
+        self.root.geometry("1200x680")
         self._set_app_icons()
 
         self.root.rowconfigure(0, weight=1)
@@ -33,7 +33,6 @@ class ThreatGUI:
 
         self.model_path = tk.StringVar(value="")
         self.model_file: Optional[Path] = None
-        self.model_data = None
 
         self._running = False
         self._console_inline_progress = False
@@ -59,11 +58,11 @@ class ThreatGUI:
             if self._icon_ico_path and self._icon_ico_path.exists():
                 window.iconbitmap(self._icon_ico_path.as_posix())
         if self._icon_images:
-            # True applies to this window and future toplevel windows on Tk.
+            # True applies this icon to this and future toplevel windows.
             window.iconphoto(True, *self._icon_images)
 
     def _load_defaults_from_env(self) -> None:
-        # Load startup defaults from app-root .env (if present).
+        # Load startup defaults from the project .env file, if it exists.
         load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
         default_model = os.getenv("LLM_MODEL_NAME", "")
         default_timeout = os.getenv("THREAT_TIMEOUT", "900")
@@ -143,18 +142,18 @@ class ThreatGUI:
         self.root.config(menu=menubar)
 
     def _build_layout(self) -> None:
-        left_column_max_width = 600
+        left_column_min_width = 380
         main_frame = ttk.Frame(self.root, padding=10)
         main_frame.grid(row=0, column=0, sticky="nsew")
-        # Keep the left column capped to a constant width while resizing.
-        main_frame.columnconfigure(0, weight=0, minsize=left_column_max_width)
+        # Keep the left column width stable while resizing the window.
+        main_frame.columnconfigure(0, weight=0, minsize=left_column_min_width)
         main_frame.columnconfigure(1, weight=1)
         main_frame.rowconfigure(0, weight=0)
         main_frame.rowconfigure(1, weight=1)
 
         left = ttk.Frame(main_frame)
         left.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=5, pady=5)
-        left.configure(width=left_column_max_width)
+        left.configure(width=left_column_min_width)
         left.columnconfigure(0, weight=1)
 
         logo_frame = ttk.Frame(left, padding=10)
@@ -173,7 +172,7 @@ class ThreatGUI:
         settings_frame = ttk.Labelframe(left, text="SETTINGS", padding=10)
         settings_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
         settings_frame.columnconfigure(0, weight=0)
-        settings_frame.columnconfigure(1, weight=1, minsize=280)
+        settings_frame.columnconfigure(1, weight=1, minsize=240)
 
         api_key_maxlen = 1280
 
@@ -374,7 +373,7 @@ class ThreatGUI:
         self.console.configure(state="disabled")
 
     def _log(self, text: str) -> None:
-        # Always marshal to the UI thread.
+        # UI updates must run on the Tk main thread.
         self.root.after(0, lambda: self._append_console(text))
 
     def _set_api_env(self, model_name: str, api_key: str) -> None:
@@ -405,7 +404,7 @@ class ThreatGUI:
         selected = Path(file_path)
         try:
             with selected.open("r", encoding="utf-8") as file:
-                self.model_data = json.load(file)
+                json.load(file)
         except Exception as exc:
             messagebox.showerror("Error", str(exc))
             return
@@ -415,103 +414,29 @@ class ThreatGUI:
         self._append_console(f"Loaded model: {selected}")
 
     def show_about(self) -> None:
-        about = tk.Toplevel(self.root)
-        about.title("About")
-        about.transient(self.root)
-        about.resizable(False, False)
-        self._apply_window_icon(about)
-
-        container = ttk.Frame(about, padding=16)
-        container.grid(row=0, column=0, sticky="nsew")
-        ttk.Label(
-            container,
-            text="Threat & Mitigation Generator",
-            font=("Segoe UI", 11, "bold"),
-        ).grid(row=0, column=0, sticky="w", pady=(0, 6))
-        ttk.Label(
-            container,
-            text="Created by Piotr Kowalczyk\ninfosecotb.com",
-        ).grid(row=1, column=0, sticky="w", pady=(0, 10))
-        ttk.Button(container, text="OK", command=about.destroy).grid(row=2, column=0, sticky="e")
-
-        about.grab_set()
-        about.focus_set()
+        messagebox.showinfo(
+            "About",
+            "Threat & Mitigation Generator\n\nCreated by Piotr Kowalczyk\ninfosecotb.com",
+            parent=self.root,
+        )
 
     def _show_generation_warning(self) -> bool:
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Warning")
-        dialog.transient(self.root)
-        dialog.resizable(False, False)
-        self._apply_window_icon(dialog)
-
-        result = {"ok": False}
-
-        def on_cancel(event=None) -> None:
-            dialog.destroy()
-
-        def on_ok(event=None) -> None:
-            result["ok"] = True
-            dialog.destroy()
-
-        container = ttk.Frame(dialog, padding=16)
-        container.grid(row=0, column=0, sticky="nsew")
-        container.columnconfigure(0, weight=1)
-
-        header = ttk.Frame(container)
-        header.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-        ttk.Label(
-            header,
-            text="*** IMPORTANT: Please Read Before You Continue ***",
-            font=("Segoe UI", 14, "bold"),
-            bootstyle="warning",
-        ).pack(side="left", anchor="w")
-
-        warning_items = [
-            "Make sure the Threat Dragon application is closed before updating the JSON file, as editing it while open may cause data loss.",
-            "Generating Threats and Mitigations sends the entire Threat Model to the selected AI for analysis as part of the prompt. Please review any security or privacy implications.",
-            "Currently, only the STRIDE methodology is supported. Using this tool with threat models based on other methodologies may lead to unexpected results.",
-            "Existing Threats and Mitigations will be reviewed and may be kept, updated, or removed by the AI. Consider taking a backup of your Threat Model file before continuing.",
-            "You can run the Generating Threats and Mitigations process multiple times with the same or different AI service. Each run will re-evaluate current items and may add new ones.",
-        ]
-
-        next_row = 1
-        for item in warning_items:
-            ttk.Label(
-                container,
-                text=f"* {item}",
-                justify="left",
-                wraplength=620,
-            ).grid(row=next_row, column=0, sticky="w", pady=(0, 8))
-            next_row += 1
-
-        ttk.Label(
-            container,
-            text="Click Cancel to exit or OK to continue.",
-            font=("Segoe UI", 10, "bold"),
-        ).grid(row=next_row, column=0, sticky="w", pady=(4, 12))
-        next_row += 1
-
-        buttons = ttk.Frame(container)
-        buttons.grid(row=next_row, column=0, sticky="e")
-        ttk.Button(buttons, text="Cancel", bootstyle=SECONDARY, command=on_cancel).pack(
-            side="left", padx=(0, 8)
+        warning_text = (
+            "IMPORTANT: Please read before you continue.\n\n"
+            "* Make sure the Threat Dragon application is closed before updating the JSON file, as editing it while open may cause data loss.\n\n"
+            "* Generating Threats and Mitigations sends the entire Threat Model to the selected AI for analysis as part of the prompt. Please review any security or privacy implications.\n\n"
+            "* Currently, only the STRIDE methodology is supported. Using this tool with threat models based on other methodologies may lead to unexpected results.\n\n"
+            "* Existing Threats and Mitigations will be reviewed and may be kept, updated, or removed by the AI. Consider taking a backup of your Threat Model file before continuing.\n\n"
+            "* You can run the Generating Threats and Mitigations process multiple times with the same or different AI service. Each run will re-evaluate current items and may add new ones.\n\n"
+            "Click Cancel to stop or OK to continue."
         )
-        ttk.Button(buttons, text="OK", bootstyle=PRIMARY, command=on_ok).pack(side="left")
-
-        dialog.protocol("WM_DELETE_WINDOW", on_cancel)
-        dialog.bind("<Escape>", on_cancel)
-        dialog.bind("<Return>", on_ok)
-
-        dialog.update_idletasks()
-        width, height = 680, 380
-        x_pos = self.root.winfo_x() + (self.root.winfo_width() - width) // 2
-        y_pos = self.root.winfo_y() + (self.root.winfo_height() - height) // 2
-        dialog.geometry(f"{width}x{height}+{max(x_pos, 0)}+{max(y_pos, 0)}")
-
-        dialog.grab_set()
-        dialog.focus_set()
-        self.root.wait_window(dialog)
-        return result["ok"]
+        return messagebox.askokcancel(
+            "Warning",
+            warning_text,
+            icon="warning",
+            parent=self.root,
+            default=messagebox.CANCEL,
+        )
 
     def _build_runtime_config(self) -> RuntimeConfig:
         if not self.model_file:
@@ -579,7 +504,7 @@ class ThreatGUI:
 
 
 def start_gui() -> None:
-    """Launch the desktop GUI application."""
+    """Start the desktop app."""
     root = ttk.Window(themename="flatly")
     ThreatGUI(root)
     root.mainloop()

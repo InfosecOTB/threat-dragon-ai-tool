@@ -1,9 +1,4 @@
-"""
-Threat Model Validation Module
-
-Validates AI-generated threat models against original specifications.
-Categories: INFO (missing elements), WARNINGS (quality issues), ERRORS (no overlap).
-"""
+"""Validation helpers for AI-generated threat data."""
 
 from typing import Dict, List
 from dataclasses import dataclass
@@ -11,7 +6,7 @@ import logging
 
 @dataclass
 class ValidationResult:
-    """Validation result container for threat model validation."""
+    """Validation result payload."""
     is_valid: bool
     missing_elements: List[str]
     invalid_ids: List[str]
@@ -21,31 +16,31 @@ class ValidationResult:
 
 
 class ThreatValidator:
-    """Validates AI-generated threat models against original specifications."""
+    """Validate AI output against the Threat Dragon model."""
     
     def validate_ai_response(self, model: dict, ai_response: List[dict]) -> ValidationResult:
-        """Validate AI response against the original threat model."""
-        # Extract in-scope elements that should have threats
+        """Validate AI response against the original model."""
+        # Collect in-scope element IDs.
         in_scope_elements = self._get_in_scope_elements(model)
         ai_element_ids = {item['id'] for item in ai_response}
         
-        # Identify missing and out-of-scope elements
+        # Split IDs into missing (in scope) and out-of-scope.
         missing_elements = [elem_id for elem_id in in_scope_elements if elem_id not in ai_element_ids]
         out_of_scope_elements = [elem_id for elem_id in ai_element_ids if elem_id not in in_scope_elements]
         
-        # Check for completely unrelated responses (no overlap with any model elements)
+        # Mark response invalid only if IDs do not overlap at all.
         all_model_elements = self._get_all_model_elements(model)
         has_overlap = len(ai_element_ids.intersection(all_model_elements)) > 0
         completely_unrelated = not has_overlap and len(ai_element_ids) > 0
         
-        # Collect quality warnings
+        # Add quality warnings (including out-of-scope IDs).
         warnings = self._check_threat_quality(ai_response)
         warnings.extend([f"Element {elem_id} is not in scope but has threats" for elem_id in out_of_scope_elements])
         
-        # Collect informational messages
+        # Missing threats are informational, not fatal.
         info = [f"Element {elem_id} is in scope but has no threats" for elem_id in missing_elements]
         
-        # Calculate validation statistics
+        # Compute report stats.
         stats = self._calculate_stats(in_scope_elements, ai_element_ids, ai_response)
         
         result = ValidationResult(
@@ -59,7 +54,7 @@ class ThreatValidator:
         return result
     
     def _get_in_scope_elements(self, model: dict) -> List[str]:
-        """Extract element IDs that should have threats generated."""
+        """Return IDs for in-scope, non-boundary elements."""
         elements = []
         for diagram in model.get('detail', {}).get('diagrams', []):
             for cell in diagram.get('cells', []):
@@ -67,7 +62,7 @@ class ThreatValidator:
                 cell_data = cell.get('data', {})
                 cell_shape = cell.get('shape', '')
                 
-                # Include if: in scope, not trust boundary, has ID
+                # Include only normal in-scope elements with an ID.
                 if (cell_id and 
                     not cell_data.get('outOfScope', False) and 
                     cell_shape not in ['trust-boundary-box', 'trust-boundary-curve']):
@@ -76,7 +71,7 @@ class ThreatValidator:
         return elements
     
     def _get_all_model_elements(self, model: dict) -> set:
-        """Extract all element IDs from the model (including out-of-scope elements)."""
+        """Return all element IDs in the model."""
         all_elements = set()
         for diagram in model.get('detail', {}).get('diagrams', []):
             for cell in diagram.get('cells', []):
@@ -85,7 +80,7 @@ class ThreatValidator:
         return all_elements
     
     def _check_threat_quality(self, ai_response: List[dict]) -> List[str]:
-        """Check threat quality and return warnings for issues."""
+        """Return non-fatal quality warnings."""
         warnings = []
         for item in ai_response:
             for i, threat in enumerate(item.get('threats', [])):
@@ -94,7 +89,7 @@ class ThreatValidator:
         return warnings
     
     def _calculate_stats(self, in_scope_elements: List[str], ai_element_ids: set, ai_response: List[dict]) -> Dict[str, int]:
-        """Calculate validation statistics."""
+        """Build validation summary statistics."""
         total_threats = sum(len(item.get('threats', [])) for item in ai_response)
         coverage = (len(ai_element_ids) / len(in_scope_elements) * 100) if in_scope_elements else 0
         
@@ -106,7 +101,7 @@ class ThreatValidator:
         }
     
     def print_summary(self, logger: logging.Logger, result: ValidationResult):
-        """Print a formatted validation summary to console."""
+        """Print a validation summary to the logger."""
         logger.info("")
         logger.info("="*60)
         logger.info("THREAT VALIDATION SUMMARY")
