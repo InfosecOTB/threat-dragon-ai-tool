@@ -9,10 +9,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 from dataclasses import dataclass
+import logging
 
 # Define absolute paths
 PROJECT_ROOT = Path(__file__).parent.parent
 LOGS_DIR = PROJECT_ROOT / "logs"
+LOGGER_NAME = "threat_modeling"
 
 
 @dataclass
@@ -120,6 +122,7 @@ class ThreatValidator:
     
     def _write_log(self, result: ValidationResult, filename: str, ai_response: List[dict]):
         """Write detailed validation log to file."""
+        logger = logging.getLogger(LOGGER_NAME)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         log_path = self.logs_dir / f"validation_log_{filename.replace('.json', '')}_{timestamp}.log"
         
@@ -165,38 +168,42 @@ VALIDATION RESULTS:
         try:
             with open(str(log_path), 'w', encoding='utf-8') as f:
                 f.write(content)
-            print(f"Validation log saved to: {log_path}")
+            logger.info("Validation log saved to: %s", log_path)
         except Exception as e:
-            print(f"Failed to save validation log: {str(e)}")
+            logger.error("Failed to save validation log: %s", str(e))
     
-    def print_summary(self, result: ValidationResult):
+    def print_summary(self, logger: logging.Logger, result: ValidationResult):
         """Print a formatted validation summary to console."""
-        print("\n" + "="*60)
-        print("THREAT VALIDATION SUMMARY")
-        print("="*60)
-        print("Note: Trust boundary boxes and curves are excluded from validation")
-        print("Note: Missing elements are informational, not errors")
-        print("Note: Invalid IDs (out of scope) are warnings, not errors")
-        print("Note: Only completely different IDs are validation errors")
+        logger.info("")
+        logger.info("="*60)
+        logger.info("THREAT VALIDATION SUMMARY")
+        logger.info("="*60)
+        logger.info("Note: Trust boundary boxes and curves are excluded from validation")
+        logger.info("Note: Missing elements are informational, not errors")
+        logger.info("Note: Invalid IDs (out of scope) are warnings, not errors")
+        logger.info("Note: Only completely different IDs are validation errors")
         
-        print(f"Overall Status: {'✅ VALID' if result.is_valid else '❌ INVALID'}")
-        print(f"Elements in Scope: {result.stats['in_scope_elements']}")
-        print(f"Elements with Threats: {result.stats['elements_with_threats']}")
-        print(f"Coverage: {result.stats['coverage_percent']}%")
-        print(f"Total Threats Generated: {result.stats['total_threats']}")
+        logger.info("Overall Status: %s", "✅ VALID" if result.is_valid else "❌ INVALID")
+        logger.info("Elements in Scope: %s", result.stats['in_scope_elements'])
+        logger.info("Elements with Threats: %s", result.stats['elements_with_threats'])
+        logger.info("Coverage: %s%%", result.stats['coverage_percent'])
+        logger.info("Total Threats Generated: %s", result.stats['total_threats'])
         
         if not result.is_valid:
-            print(f"\n❌ VALIDATION ERRORS:")
-            print(f"  • AI response contains completely different IDs with no overlap to model elements")
+            logger.error("")
+            logger.error("❌ VALIDATION ERRORS:")
+            logger.error("  • AI response contains completely different IDs with no overlap to model elements")
         
         if result.warnings:
-            print(f"\n⚠️  WARNINGS ({len(result.warnings)}):")
+            logger.warning("")
+            logger.warning("⚠️  WARNINGS (%s):", len(result.warnings))
             for warning in result.warnings:
-                print(f"  • {warning}")
+                logger.warning("  • %s", warning)
         
         if result.info:
-            print(f"\nℹ️  INFO ({len(result.info)}):")
+            logger.info("")
+            logger.info("ℹ️  INFO (%s):", len(result.info))
             for info_item in result.info:
-                print(f"  • {info_item}")
+                logger.info("  • %s", info_item)
         
-        print("="*60)
+        logger.info("="*60)

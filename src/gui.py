@@ -26,7 +26,7 @@ class ThreatGUI:
         self._icon_ico_path: Optional[Path] = None
         self._icon_images: List[PhotoImage] = []
         self.root.title("Threat Dragon Threats & Mitigations Generator")
-        self.root.geometry("1200x700")
+        self.root.geometry("1200x670")
         self._set_app_icons()
 
         self.root.rowconfigure(0, weight=1)
@@ -62,7 +62,8 @@ class ThreatGUI:
             window.iconphoto(True, *self._icon_images)
 
     def _load_defaults_from_env(self) -> None:
-        load_dotenv()
+        # Load startup defaults from app-root .env (if present).
+        load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
         default_model = os.getenv("LLM_MODEL_NAME", "")
         default_timeout = os.getenv("THREAT_TIMEOUT", "900")
         default_schema = os.getenv("THREAT_SCHEMA_JSON", "owasp.threat-dragon.schema.V2.json")
@@ -77,6 +78,41 @@ class ThreatGUI:
             "logLevel": tk.StringVar(value="INFO"),
             "timeout": tk.StringVar(value=default_timeout),
         }
+
+        api_key = (os.getenv("API_KEY") or "").strip()
+        if api_key:
+            self.settings_vars["apiKey"].set(api_key)
+
+        llm_model = (os.getenv("LLM_MODEL") or "").strip()
+        if llm_model:
+            self.settings_vars["llmModel"].set(llm_model)
+
+        temperature = (os.getenv("TEMPERATURE") or "").strip()
+        if temperature:
+            try:
+                temp_value = float(temperature)
+                if 0.0 <= temp_value <= 2.0:
+                    self.settings_vars["temperature"].set(temperature)
+            except ValueError:
+                pass
+
+        response_format = (os.getenv("RESPONSE_FORMAT") or "").strip().lower()
+        if response_format in {"1", "true", "yes", "on"}:
+            self.settings_vars["responseFormat"].set(True)
+        elif response_format in {"0", "false", "no", "off"}:
+            self.settings_vars["responseFormat"].set(False)
+
+        api_base_url = (os.getenv("API_BASE_URL") or "").strip()
+        if api_base_url:
+            self.settings_vars["apiBase"].set(api_base_url)
+
+        log_level = (os.getenv("LOG_LEVEL") or "").strip().upper()
+        if log_level in {"INFO", "DEBUG"}:
+            self.settings_vars["logLevel"].set(log_level)
+
+        timeout = (os.getenv("TIMEOUT") or "").strip()
+        if timeout.isdigit() and int(timeout) >= 1:
+            self.settings_vars["timeout"].set(timeout)
 
     def _setup_style(self) -> None:
         style = ttk.Style()
@@ -135,7 +171,7 @@ class ThreatGUI:
         settings_frame.columnconfigure(0, weight=0)
         settings_frame.columnconfigure(1, weight=1, minsize=280)
 
-        api_key_maxlen = 128
+        api_key_maxlen = 1280
 
         def validate_api_key(action: str, value: str) -> bool:
             if action == "0":  # delete

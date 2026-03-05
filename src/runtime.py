@@ -151,11 +151,13 @@ def run_threat_modeling(
             ai_response_format,
             config.model_file_label,
         )
-        validator.print_summary(validation_result)
+        validator.print_summary(logger, validation_result)
     except Exception as exc:
         logger.error("Validation error: %s", exc)
 
     logger.info("=" * 60)
     logger.info("THREAT MODELING PROCESS COMPLETED")
     logger.info("=" * 60)
+    logger.info("\n")
+    logger.info("\n")
     return validation_result
