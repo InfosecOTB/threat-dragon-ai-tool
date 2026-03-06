@@ -53,7 +53,7 @@ class ThreatGUI:
     def _set_app_icons(self) -> None:
         self._icon_ico_path = ASSETS_DIR / "favicon.ico"
         self._icon_images = []
-        for size in [16, 32, 48, 64, 96, 128]:
+        for size in [16, 32, 48, 64, 96, 128, 256, 512]:
             icon_path = ASSETS_DIR / f"favicon-{size}x{size}.png"
             if icon_path.exists():
                 self._icon_images.append(PhotoImage(file=icon_path.as_posix()))
