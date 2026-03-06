@@ -20,7 +20,24 @@ Generating threats and mitigations is a complex task that requires capable model
 You can read more about testing different models and its results in my blog [AI-Powered Threat Modeling with OWASP Threat Dragon – Part 2: Generating Threats with Artificial Intelligence](https://infosecotb.com/ai-powered-threat-modeling-with-owasp-threat-dragon-part-2-generating-threats-with-artificial-intelligence/) 
 
 ## Installation
-Copy `td-ai-tool.exe` to a folder and run it. Creating a `.env` file in the same folder is optional; if present, the application will read settings from it. You can also enter settings in the application, but they are lost when you close it. For security and simplicity, saving settings from inside the application is not supported at this time.
+Copy `td-ai-tool.exe` to a folder and run it. 
+
+### Instructions
+1. **Configure** - Adjust the LLM model, temperature, API key and other settings in the left panel if needed. Settings from `.env` are pre-filled.
+
+   ![Settings panel](assets/settings.png)
+
+   Configuration fields:
+   - `API Key` - API key for accessing the LLM service.
+   - `LLM Model` - LLM model identifier, for example `openai/gpt-5`, `anthropic/claude-sonnet-4-5`, or `xai/grok-4`.
+   - `Temperature` - Lower values make output more deterministic; higher values increase creativity and randomness. Valid range: `0` to `2`.
+   - `Response Format` - Enables structured JSON output. Recommended for supported models such as `openai/gpt-5` or `xai/grok-4`. If enabled for an unsupported model, the request may fail.
+   - `API Base URL` - Custom API base URL. Most hosted AI providers do not require this because LiteLLM handles it automatically.
+   - `Log Level` - Logging level: `INFO` or `DEBUG`.
+   - `Timeout` - Request timeout in seconds for LLM API calls. Default: `900` seconds (`15` minutes).
+
+
+   Creating a `.env` file in the same folder as `td-ai-tool.exe` is optional; if present, the application will read settings from it. You can also enter settings in the application, but they are lost when you close it. For security and simplicity, saving settings from inside the application is not supported at this time.
 
 ### Optional `.env` variables
 
@@ -46,12 +63,12 @@ LOG_LEVEL=INFO
 TIMEOUT=900
 ```
 
-### Workflow
+2. **Open a model** - Click *Open Model* (or File → Open Model) and select a Threat Dragon `.json` file.
 
-1. **Open a model** - Click *Open Model* (or File → Open Model) and select a Threat Dragon `.json` file.
-2. **Configure** - Adjust the LLM model, temperature, API key and other settings in the left panel if needed. Settings from `.env` are pre-filled.
 3. **Generate** - Click *Generate Threat and Mitigations*. A warning dialog will appear - read it, then confirm.
+
 4. **Wait** - The console on the right shows progress. Depending on the model size and LLM provider, this can take from a few seconds to several minutes.
+
 5. **Done** - The tool writes threats directly into your `.json` file and runs a validation pass. Open the file in Threat Dragon to see the results.
 
 ### Things to keep in mind

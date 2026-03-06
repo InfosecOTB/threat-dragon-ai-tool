@@ -7,6 +7,7 @@ import logging
 import os
 import sys
 import threading
+import webbrowser
 from pathlib import Path
 from typing import List, Optional, Union
 import tkinter as tk
@@ -17,6 +18,11 @@ from ttkbootstrap.constants import PRIMARY, SECONDARY, SUCCESS
 from dotenv import load_dotenv
 
 from runtime import ASSETS_DIR, PROJECT_ROOT, RuntimeConfig, run_threat_modeling
+
+APP_NAME = "Threat Dragon AI Tool"
+APP_VERSION = "1.0.0"
+DOCS_URL = "https://github.com/InfosecOTB/threat-dragon-ai-tool"
+BLOG_URL = "https://infosecotb.com"
 
 
 class ThreatGUI:
@@ -134,6 +140,9 @@ class ThreatGUI:
         run_menu.add_command(label="Generate Threat & Mitigation", command=self.run_main_script)
 
         help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label="Documentation", command=self.open_documentation)
+        help_menu.add_command(label="Blog", command=self.open_blog)
+        help_menu.add_separator()
         help_menu.add_command(label="About", command=self.show_about)
 
         menubar.add_cascade(label="File", menu=file_menu)
@@ -416,9 +425,33 @@ class ThreatGUI:
     def show_about(self) -> None:
         messagebox.showinfo(
             "About",
-            "Threat & Mitigation Generator\n\nCreated by Piotr Kowalczyk\ninfosecotb.com",
+            (
+                f"{APP_NAME}\n"
+                f"Version {APP_VERSION}\n\n"
+                "Desktop application for generating STRIDE threats and mitigations "
+                "for OWASP Threat Dragon models using LLMs.\n\n"
+                "License: Apache License 2.0\n"
+                "Created by Piotr Kowalczyk\n"
+                f"{BLOG_URL}"
+            ),
             parent=self.root,
         )
+
+    def _open_external_link(self, url: str, label: str) -> None:
+        try:
+            webbrowser.open(url, new=2)
+        except Exception as exc:
+            messagebox.showerror(
+                "Error",
+                f"Unable to open {label}.\n\n{exc}",
+                parent=self.root,
+            )
+
+    def open_documentation(self) -> None:
+        self._open_external_link(DOCS_URL, "documentation")
+
+    def open_blog(self) -> None:
+        self._open_external_link(BLOG_URL, "blog")
 
     def _show_generation_warning(self) -> bool:
         warning_text = (
