@@ -102,38 +102,121 @@ The GUI collects user settings and kicks off `run_threat_modeling()` on a backgr
 
 ```
 threat-dragon-ai-tool/
-├── assets/
-│   └── owasp.threat-dragon.schema.V2.json   # Threat Dragon V2 schema
+├── assets/             # Bundled schema, icons, images, and other app assets
 ├── src/
 │   ├── main.py           # Entry point
 │   ├── gui.py            # Tkinter/ttkbootstrap desktop UI
 │   ├── runtime.py        # Orchestration (UI-agnostic)
+│   ├── app_paths.py      # Resource paths for source and PyInstaller builds
 │   ├── ai_client.py      # LLM integration via LiteLLM
 │   ├── validator.py      # Post-generation response validation
 │   ├── models.py         # Pydantic models for the AI response format
 │   └── utils.py          # JSON file I/O, threat merging
 ├── prompt.txt            # System prompt template sent to the LLM
 ├── requirements.txt
-├── env.example           # Example .env configuration
-└── .env                  # Your local config (not tracked by git)
+└── env.example           # Example .env configuration
 ```
 
-### Key dependencies
+## Build and Release
+
+### Prerequisites
+
+Before building the executable, make sure Python is installed on your system.
+
+This project is packaged with **PyInstaller** in `--onedir` mode for faster startup.
+
+---
+
+### Build executable with PyInstaller
+
+#### Windows
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt pyinstaller
+
+py -m PyInstaller `
+  --noconfirm `
+  --clean `
+  --onedir `
+  --windowed `
+  --noupx `
+  --name "td-ai-tool" `
+  --icon "assets\favicon.ico" `
+  --add-data "assets;assets" `
+  --add-data "prompt.txt;." `
+  --collect-all ttkbootstrap `
+  --collect-all litellm `
+  --hidden-import "tiktoken_ext.openai_public" `
+  src\main.py
+```
+
+#### Linux
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt pyinstaller
+
+python -m PyInstaller \
+  --noconfirm \
+  --clean \
+  --onedir \
+  --windowed \
+  --noupx \
+  --name "td-ai-tool" \
+  --icon "assets/favicon-512x512.png" \
+  --add-data "assets:assets" \
+  --add-data "prompt.txt:." \
+  --collect-all ttkbootstrap \
+  --collect-all litellm \
+  --hidden-import "tiktoken_ext.openai_public" \
+  src/main.py
+```
+
+#### macOS
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt pyinstaller
+
+python -m PyInstaller \
+  --noconfirm \
+  --clean \
+  --onedir \
+  --windowed \
+  --noupx \
+  --name "td-ai-tool" \
+  --icon "assets/favicon.icns" \
+  --add-data "assets:assets" \
+  --add-data "prompt.txt:." \
+  --collect-all ttkbootstrap \
+  --collect-all litellm \
+  --hidden-import "tiktoken_ext.openai_public" \
+  src/main.py
+```
+
+## Key dependencies
 
 - **[LiteLLM](https://github.com/BerriAI/litellm)** - unified API wrapper that lets you swap LLM providers without changing code.
 - **[Pydantic](https://docs.pydantic.dev/)** - validates and parses the structured JSON that comes back from the LLM.
 - **[ttkbootstrap](https://ttkbootstrap.readthedocs.io/)** - modern-looking Tkinter theme for the GUI.
 - **[python-dotenv](https://github.com/theskumar/python-dotenv)** - loads `.env` defaults on startup.
 
-### License
+## License
 This project is licensed under the Apache 2.0 License - see the LICENSE file for details.
 
-### Acknowledgments
+## Acknowledgments
 - **[OWASP Threat Dragon](https://owasp.org/www-project-threat-dragon/)** for the excellent threat modeling framework
 - **[LiteLLM](https://github.com/BerriAI/litellm)** for seamless multi-LLM support
 - **[Pydantic](https://pydantic.dev/)** for robust data validation
 
-### Additional Resources
+## Additional Resources
 For more information about cybersecurity and AI projects, visit my blog at https://infosecotb.com.
 
 

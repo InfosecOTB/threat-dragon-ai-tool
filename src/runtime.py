@@ -9,10 +9,6 @@ from ai_client import generate_threats
 from utils import load_json, update_threats_in_file
 from validator import ThreatValidator, ValidationResult
 
-# Project paths used across runtime and GUI.
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-ASSETS_DIR = PROJECT_ROOT / "assets"
-
 _LOGGER_NAME = "threat_modeling"
 
 

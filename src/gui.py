@@ -17,7 +17,8 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import PRIMARY, SECONDARY, SUCCESS
 from dotenv import load_dotenv
 
-from runtime import ASSETS_DIR, PROJECT_ROOT, RuntimeConfig, run_threat_modeling
+from app_paths import APP_ROOT, ASSETS_DIR
+from runtime import RuntimeConfig, run_threat_modeling
 
 APP_NAME = "Threat Dragon AI Tool"
 APP_VERSION = "1.0.0"
@@ -69,7 +70,7 @@ class ThreatGUI:
 
     def _load_defaults_from_env(self) -> None:
         # Load startup defaults from the project .env file, if it exists.
-        load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
+        load_dotenv(dotenv_path=APP_ROOT / ".env")
         default_model = os.getenv("LLM_MODEL_NAME", "")
         default_timeout = os.getenv("THREAT_TIMEOUT", "900")
         default_schema = os.getenv("THREAT_SCHEMA_JSON", "owasp.threat-dragon.schema.V2.json")
@@ -170,8 +171,8 @@ class ThreatGUI:
         row = ttk.Frame(logo_frame)
         row.pack(anchor="w")
 
-        self.logo_img = self._try_load_logo("assets/logo-infosecotb.png", subsample=3)
-        self.td_logo = self._try_load_logo("assets/threat-dragon-logo.png", subsample=3)
+        self.logo_img = self._try_load_logo("logo-infosecotb.png", subsample=3)
+        self.td_logo = self._try_load_logo("threat-dragon-logo.png", subsample=3)
 
         if self.logo_img:
             ttk.Label(row, image=self.logo_img).pack(side="left", padx=(0, 8))
@@ -321,8 +322,8 @@ class ThreatGUI:
         scrollbar.grid(row=0, column=1, sticky="ns")
         self._attach_text_context_menu(self.console, allow_paste=False, allow_cut=False)
 
-    def _try_load_logo(self, relative_path: str, subsample: int = 1):
-        logo_path = PROJECT_ROOT / relative_path
+    def _try_load_logo(self, asset_name: str, subsample: int = 1):
+        logo_path = ASSETS_DIR / asset_name
         try:
             raw = tk.PhotoImage(file=str(logo_path))
             return raw.subsample(subsample, subsample) if subsample > 1 else raw
@@ -532,7 +533,6 @@ class ThreatGUI:
         self.run_button.configure(state="normal")
 
     def on_exit_request(self) -> None:
-        if messagebox.askyesno("Exit", "Do you want to exit the application?"):
             self.root.destroy()
 
 

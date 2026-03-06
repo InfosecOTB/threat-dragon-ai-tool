@@ -5,13 +5,10 @@ import re
 import logging
 import threading
 import time
-from pathlib import Path
 from typing import Dict, List, Tuple
 import litellm
+from app_paths import PROMPT_FILE
 from models import AIThreatsResponseList
-
-PROJECT_ROOT = Path(__file__).parent.parent
-PROMPT_FILE = PROJECT_ROOT / "prompt.txt"
 
 
 def generate_threats(schema: Dict, model: Dict, api_key: str, model_name: str, temperature: float = 0.1, response_format: bool = False, api_base: str = None, timeout: int = 900) -> Tuple[Dict[str, List[Dict]], float]:
@@ -41,7 +38,7 @@ def generate_threats(schema: Dict, model: Dict, api_key: str, model_name: str, t
 
     try:
         max_tokens = int(litellm.get_max_tokens(model=model_name))
-    except Exception as e:
+    except Exception:
         logger.error("Problem with getting max tokens: Using default value of 100000.")
         max_tokens = 100000
 
