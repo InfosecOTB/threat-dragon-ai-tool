@@ -22,8 +22,9 @@ You can read more about testing different models and its results in my blog [AI-
 ## Installation and Run
 
 Download the correct archive for your system from GitHub Releases, extract it, open the folder, and run the executable.
+https://github.com/InfosecOTB/threat-dragon-ai-tool/releases
 
-Run from Python source (Python 3.10+ required):
+Alternatively, run from Python source (Python 3.10+ required):
 
 ```bash
 git clone https://github.com/InfosecOTB/threat-dragon-ai-tool.git
