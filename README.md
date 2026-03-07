@@ -21,25 +21,15 @@ You can read more about testing different models and its results in my blog [AI-
 
 ## Installation and Run
 
-Download the correct archive for your system from **GitHub Releases**, then extract it.
+Download the correct archive for your system from GitHub Releases, extract it, open the folder, and run the executable.
 
-### Windows
-Open the extracted folder and run:
-
-```text
-td-ai-tool.exe
-```
-
-### macOS
-Open the extracted folder and run the app.  
-If needed, right-click the app and choose **Open**.
-
-### Linux
-Open a terminal in the extracted folder and run:
+Run from Python source (Python 3.10+ required):
 
 ```bash
-chmod +x td-ai-tool
-./td-ai-tool
+git clone https://github.com/InfosecOTB/threat-dragon-ai-tool.git
+cd threat-dragon-ai-tool
+pip install -r requirements.txt
+python src/main.py
 ```
 
 ## Important
@@ -166,7 +156,7 @@ pip install -r requirements.txt pyinstaller
 python -m PyInstaller \
   --noconfirm \
   --clean \
-  --onedir \
+  --onefile \
   --windowed \
   --noupx \
   --name "td-ai-tool" \
