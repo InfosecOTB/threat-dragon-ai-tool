@@ -191,7 +191,7 @@ pip install -r requirements.txt pyinstaller
 python -m PyInstaller \
   --noconfirm \
   --clean \
-  --onedir \
+  --onefile \
   --windowed \
   --noupx \
   --name "td-ai-tool" \

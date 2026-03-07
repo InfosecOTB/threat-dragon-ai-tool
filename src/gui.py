@@ -397,16 +397,21 @@ class ThreatGUI:
                 command=lambda: widget.tag_add("sel", "1.0", "end-1c"),
             )
             widget.bind("<Control-a>", lambda e: (widget.tag_add("sel", "1.0", "end-1c"), "break"))
+            widget.bind("<Command-a>", lambda e: (widget.tag_add("sel", "1.0", "end-1c"), "break"))
         else:
             menu.add_command(label="Select All", command=lambda: widget.select_range(0, "end"))
+            widget.bind("<Command-a>", lambda e: (widget.select_range(0, "end"), "break"))
 
         def show_menu(event) -> None:
             try:
+                widget.focus_set()
                 menu.tk_popup(event.x_root, event.y_root)
             finally:
                 menu.grab_release()
 
+        widget.bind("<Button-2>", show_menu)
         widget.bind("<Button-3>", show_menu)
+        widget.bind("<Control-Button-1>", show_menu)
 
     def _append_console(self, text: str) -> None:
         self.console.configure(state="normal")
