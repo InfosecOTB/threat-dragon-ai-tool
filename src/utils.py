@@ -33,8 +33,8 @@ def update_threats_in_file(file_path: Union[str, Path], threats_data: dict) -> N
                 if (cell.get('data', {}).get('outOfScope') or \
                    cell.get('shape', '') in ['trust-boundary-box', 'trust-boundary-curve']):
                     continue
-                
-                # Ensure the cell has a data section.
+
+                # Some cell types do not include a data section by default.
                 if 'data' not in cell:
                     cell['data'] = {}
                 
@@ -44,7 +44,7 @@ def update_threats_in_file(file_path: Union[str, Path], threats_data: dict) -> N
                     if 'id' not in threat:
                         threat['id'] = str(uuid.uuid4())
                     threats_with_ids.append(threat)
-                
+
                 cell['data']['threats'] = threats_with_ids
                 
                 # Refresh the hasOpenThreats flag when present.
@@ -60,7 +60,7 @@ def update_threats_in_file(file_path: Union[str, Path], threats_data: dict) -> N
     # Save the updated model file.
     with open(str(file_path), 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, separators=(',', ': '), ensure_ascii=False)
-    
+
     logger.info(f"Updated {updated_count} cells with threats")
 
 

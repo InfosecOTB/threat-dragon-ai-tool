@@ -17,7 +17,7 @@ class ValidationResult:
 
 class ThreatValidator:
     """Validate AI output against the Threat Dragon model."""
-    
+
     def validate_ai_response(self, model: dict, ai_response: List[dict]) -> ValidationResult:
         """Validate AI response against the original model."""
         # Collect in-scope element IDs.
@@ -109,8 +109,7 @@ class ThreatValidator:
         logger.info("Note: Trust boundary boxes and curves are excluded from validation")
         logger.info("Note: Missing elements are informational, not errors")
         logger.info("Note: Invalid IDs (out of scope) are warnings, not errors")
-        logger.info("Note: Only completely different IDs are validation errors")
-        
+        logger.info("Note: Only completely different IDs are validation errors")      
         logger.info("Overall Status: %s", "✅ VALID" if result.is_valid else "❌ INVALID")
         logger.info("Elements in Scope: %s", result.stats['in_scope_elements'])
         logger.info("Elements with Threats: %s", result.stats['elements_with_threats'])

@@ -34,6 +34,7 @@ class ThreatGUI:
         self.root = root
         self._icon_ico_path: Optional[Path] = None
         self._icon_images: List[PhotoImage] = []
+        self._saved_config_state: Dict[str, Any] = {}
         self.root.title("Threat Dragon AI Threats & Mitigations Generator")
         self.root.geometry("1200x720")
         self._set_app_icons()
@@ -47,6 +48,7 @@ class ThreatGUI:
         self._running = False
         self._console_inline_progress = False
         self._load_defaults_from_config()
+        self._saved_config_state = self._collect_config_state()
 
         self._setup_style()
         self._build_menu()
@@ -68,7 +70,7 @@ class ThreatGUI:
             if self._icon_ico_path and self._icon_ico_path.exists():
                 window.iconbitmap(self._icon_ico_path.as_posix())
         if self._icon_images:
-            # True applies this icon to this and future toplevel windows.
+            # Apply the icon to this window and future toplevel windows.
             window.iconphoto(True, *self._icon_images)
 
     def _load_defaults_from_config(self) -> None:
@@ -233,7 +235,8 @@ class ThreatGUI:
         api_key_maxlen = 1280
 
         def validate_api_key(action: str, value: str) -> bool:
-            if action == "0":  # delete
+            # Tk sends action "0" when the edit is a deletion.
+            if action == "0":
                 return True
             return len(value) <= api_key_maxlen
 
@@ -402,16 +405,19 @@ class ThreatGUI:
             menu.add_command(label="Select All", command=lambda: widget.select_range(0, "end"))
             widget.bind("<Command-a>", lambda e: (widget.select_range(0, "end"), "break"))
 
-        def show_menu(event) -> None:
+        def show_menu(event) -> str:
             try:
                 widget.focus_set()
                 menu.tk_popup(event.x_root, event.y_root)
             finally:
                 menu.grab_release()
+            return "break"
 
-        widget.bind("<Button-2>", show_menu)
-        widget.bind("<Button-3>", show_menu)
-        widget.bind("<Control-Button-1>", show_menu)
+        # On Linux/X11, opening popup on button press can make it close on release.
+        # Binding release events keeps the menu open consistently.
+        widget.bind("<ButtonRelease-2>", show_menu)
+        widget.bind("<ButtonRelease-3>", show_menu)
+        widget.bind("<Control-ButtonRelease-1>", show_menu)
 
     def _append_console(self, text: str) -> None:
         self.console.configure(state="normal")
@@ -568,6 +574,20 @@ class ThreatGUI:
             # No previously saved key; nothing to remove.
             pass
 
+    def _collect_config_state(self) -> Dict[str, Any]:
+        return {
+            "llmModel": self.settings_vars["llmModel"].get().strip(),
+            "temperature": self.settings_vars["temperature"].get().strip(),
+            "responseFormat": bool(self.settings_vars["responseFormat"].get()),
+            "apiBase": self.settings_vars["apiBase"].get().strip(),
+            "logLevel": self.settings_vars["logLevel"].get().strip().upper(),
+            "timeout": self.settings_vars["timeout"].get().strip(),
+            "apiKey": self.settings_vars["apiKey"].get().strip(),
+        }
+
+    def _has_unsaved_config_changes(self) -> bool:
+        return self._collect_config_state() != self._saved_config_state
+
     def save_config(self) -> None:
         try:
             payload = self._build_config_payload()
@@ -603,6 +623,7 @@ class ThreatGUI:
             else "API key removed from OS secure store."
         )
         self._append_console(f"Configuration saved to: {CONFIG_FILE} | {api_key_status}")
+        self._saved_config_state = self._collect_config_state()
         messagebox.showinfo(
             "Configuration Saved",
             f"Configuration saved to:\n{CONFIG_FILE}\n\n{api_key_status}",
@@ -666,6 +687,19 @@ class ThreatGUI:
         self.run_button.configure(state="normal")
 
     def on_exit_request(self) -> None:
+        has_unsaved_changes = self._has_unsaved_config_changes()
+        message = "Do you want to close the application?"
+        if has_unsaved_changes:
+            message += "\n\nYou have unsaved configuration changes."
+
+        should_close = messagebox.askokcancel(
+            "Confirm Exit",
+            message,
+            icon="warning" if has_unsaved_changes else "question",
+            parent=self.root,
+            default=messagebox.CANCEL,
+        )
+        if should_close:
             self.root.destroy()
 
 

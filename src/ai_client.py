@@ -16,7 +16,7 @@ def generate_threats(schema: Dict, model: Dict, api_key: str, model_name: str, t
     logger = logging.getLogger("threat_modeling.ai_client")
     logger.info("Starting threat generation...")
     
-    # Build the system prompt from template + input data.
+    # Render the prompt template with the current schema and model JSON.
     prompt_template = PROMPT_FILE.read_text(encoding='utf-8')
     
     system_prompt = prompt_template.format(
@@ -24,11 +24,11 @@ def generate_threats(schema: Dict, model: Dict, api_key: str, model_name: str, t
         model_json=json.dumps(model, indent=2, ensure_ascii=False)
     )
     
-    # Let LiteLLM validate JSON when response_format is enabled.
+    # Enable schema validation when structured output is requested.
     litellm.enable_json_schema_validation = response_format
     litellm.drop_params = True
 
-    # Create the chat messages sent to the model.
+    # Keep the user instruction short; most constraints live in system prompt.
     messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Analyze provided Threat Dragon model, generate threats and mitigations for elements and return a valid JSON following the rules."}
@@ -69,7 +69,7 @@ def generate_threats(schema: Dict, model: Dict, api_key: str, model_name: str, t
     )
     logger.info(params_log)
 
-    # Call the model and keep progress logs running while we wait.
+    # Log request progress while waiting for the model response.
     logger.info(f"Calling LLM: {model_name}")
     request_started_at = time.monotonic()
     progress_stop = threading.Event()
@@ -101,18 +101,18 @@ def generate_threats(schema: Dict, model: Dict, api_key: str, model_name: str, t
     total_wait_seconds = int(time.monotonic() - request_started_at)
     logger.info(f"LLM response received after {total_wait_seconds}s.")
 
-    # Pull estimated request cost from response metadata.
+    # LiteLLM exposes estimated cost in hidden response metadata.
     response_cost = response._hidden_params.get("response_cost", 0.0)
     logger.info(f"Response cost: {response_cost}")
     logger.debug(f"\n\nResponse: {response}")
     
-    # Parse the response into our Pydantic schema.
+    # Parse response content into the Pydantic schema.
     try:
         ai_response = AIThreatsResponseList.model_validate_json(response.choices[0].message.content)
     except Exception:
-        # Fallback: try to pull JSON out of plain text/markdown.
+        # Fallback for models that wrap JSON in prose or markdown.
         logger.warning("LLM returned invalid JSON. Trying to extract JSON...")
-        # We expect a top-level object with an "items" array.
+        # Expected top-level shape: {"items": [...]}
         match = re.search(r'\{\s*"items"\s*:\s*\[.*?\]\s*\}', response.choices[0].message.content, re.S)
         if match:
             ai_response = AIThreatsResponseList.model_validate_json(match.group())
@@ -121,7 +121,7 @@ def generate_threats(schema: Dict, model: Dict, api_key: str, model_name: str, t
     
     logger.debug(f"\n\nAI Response: {ai_response}")
     
-    # Convert Pydantic objects to plain dictionaries.
+    # Convert Pydantic objects to plain dictionaries for downstream code.
     threats_data = {
         item.id: [threat.model_dump() for threat in item.threats] 
         for item in ai_response.items

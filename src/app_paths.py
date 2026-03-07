@@ -12,14 +12,6 @@ def _get_bundle_root() -> Path:
         return Path(sys._MEIPASS)
     return Path(__file__).resolve().parent.parent
 
-
-def _get_app_root() -> Path:
-    """Return the directory where the app should read user-provided files."""
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
-    return Path(__file__).resolve().parent.parent
-
-
 def _get_config_root() -> Path:
     """Return the directory where user config should be stored."""
     if not getattr(sys, "frozen", False):
@@ -27,9 +19,8 @@ def _get_config_root() -> Path:
 
     executable_path = Path(sys.executable).resolve()
 
-    # macOS .app bundles keep the executable inside:
-    # MyApp.app/Contents/MacOS/<binary>
-    # Store config next to MyApp.app, not inside the bundle.
+    # For app bundles (MyApp.app/Contents/MacOS/<binary>), keep config outside
+    # the bundle so the app can update it and users can find it easily.
     if sys.platform == "darwin":
         for parent in executable_path.parents:
             if parent.suffix.lower() == ".app":
@@ -39,7 +30,6 @@ def _get_config_root() -> Path:
 
 
 BUNDLE_ROOT = _get_bundle_root()
-APP_ROOT = _get_app_root()
 CONFIG_ROOT = _get_config_root()
 ASSETS_DIR = BUNDLE_ROOT / "assets"
 PROMPT_FILE = BUNDLE_ROOT / "prompt.txt"
