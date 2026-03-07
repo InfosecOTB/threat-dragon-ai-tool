@@ -9,21 +9,24 @@ import sys
 import threading
 import webbrowser
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 import tkinter as tk
 from tkinter import filedialog, messagebox, PhotoImage
 
+import keyring
+from keyring.errors import KeyringError, PasswordDeleteError
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import PRIMARY, SECONDARY, SUCCESS
-from dotenv import load_dotenv
+from ttkbootstrap.constants import SECONDARY, SUCCESS
 
-from app_paths import APP_ROOT, ASSETS_DIR
+from app_paths import ASSETS_DIR, CONFIG_FILE
 from runtime import RuntimeConfig, run_threat_modeling
 
 APP_NAME = "Threat Dragon AI Tool"
 APP_VERSION = "1.0.0"
 DOCS_URL = "https://github.com/InfosecOTB/threat-dragon-ai-tool"
 BLOG_URL = "https://infosecotb.com"
+KEYRING_SERVICE = "threat-dragon-ai-tool"
+KEYRING_USERNAME = "api_key"
 
 
 class ThreatGUI:
@@ -32,7 +35,7 @@ class ThreatGUI:
         self._icon_ico_path: Optional[Path] = None
         self._icon_images: List[PhotoImage] = []
         self.root.title("Threat Dragon AI Threats & Mitigations Generator")
-        self.root.geometry("1200x680")
+        self.root.geometry("1200x720")
         self._set_app_icons()
 
         self.root.rowconfigure(0, weight=1)
@@ -43,7 +46,7 @@ class ThreatGUI:
 
         self._running = False
         self._console_inline_progress = False
-        self._load_defaults_from_env()
+        self._load_defaults_from_config()
 
         self._setup_style()
         self._build_menu()
@@ -68,58 +71,101 @@ class ThreatGUI:
             # True applies this icon to this and future toplevel windows.
             window.iconphoto(True, *self._icon_images)
 
-    def _load_defaults_from_env(self) -> None:
-        # Load startup defaults from the project .env file, if it exists.
-        load_dotenv(dotenv_path=APP_ROOT / ".env")
-        default_model = os.getenv("LLM_MODEL_NAME", "")
-        default_timeout = os.getenv("THREAT_TIMEOUT", "900")
-        default_schema = os.getenv("THREAT_SCHEMA_JSON", "owasp.threat-dragon.schema.V2.json")
-
+    def _load_defaults_from_config(self) -> None:
+        default_schema = "owasp.threat-dragon.schema.V2.json"
         self.default_schema_path = ASSETS_DIR / default_schema
         self.settings_vars = {
             "apiKey": tk.StringVar(value=""),
-            "llmModel": tk.StringVar(value=default_model),
+            "llmModel": tk.StringVar(value=""),
             "temperature": tk.StringVar(value="0.1"),
             "responseFormat": tk.BooleanVar(value=True),
             "apiBase": tk.StringVar(value=""),
             "logLevel": tk.StringVar(value="INFO"),
-            "timeout": tk.StringVar(value=default_timeout),
+            "timeout": tk.StringVar(value="900"),
         }
 
-        api_key = (os.getenv("API_KEY") or "").strip()
-        if api_key:
-            self.settings_vars["apiKey"].set(api_key)
+        config_data = self._read_config_json()
+        if config_data:
+            self._apply_config(config_data)
 
-        llm_model = (os.getenv("LLM_MODEL") or "").strip()
+        self._load_api_key_from_keyring()
+
+    def _read_config_json(self) -> Dict[str, Any]:
+        if not CONFIG_FILE.exists():
+            return {}
+
+        try:
+            with CONFIG_FILE.open("r", encoding="utf-8") as file:
+                payload = json.load(file)
+        except Exception as exc:
+            messagebox.showwarning(
+                "Config Warning",
+                f"Could not read config file:\n{CONFIG_FILE}\n\n{exc}",
+                parent=self.root,
+            )
+            return {}
+
+        if not isinstance(payload, dict):
+            messagebox.showwarning(
+                "Config Warning",
+                f"Config file must contain a JSON object:\n{CONFIG_FILE}",
+                parent=self.root,
+            )
+            return {}
+
+        return payload
+
+    def _apply_config(self, payload: Dict[str, Any]) -> None:
+        llm_model = str(payload.get("llmModel", "")).strip()
         if llm_model:
             self.settings_vars["llmModel"].set(llm_model)
 
-        temperature = (os.getenv("TEMPERATURE") or "").strip()
+        temperature = str(payload.get("temperature", "")).strip()
         if temperature:
             try:
                 temp_value = float(temperature)
                 if 0.0 <= temp_value <= 2.0:
-                    self.settings_vars["temperature"].set(temperature)
+                    self.settings_vars["temperature"].set(str(temp_value))
             except ValueError:
                 pass
 
-        response_format = (os.getenv("RESPONSE_FORMAT") or "").strip().lower()
-        if response_format in {"1", "true", "yes", "on"}:
-            self.settings_vars["responseFormat"].set(True)
-        elif response_format in {"0", "false", "no", "off"}:
-            self.settings_vars["responseFormat"].set(False)
+        if "responseFormat" in payload:
+            response_format = payload["responseFormat"]
+            if isinstance(response_format, bool):
+                self.settings_vars["responseFormat"].set(response_format)
+            elif isinstance(response_format, str):
+                normalized = response_format.strip().lower()
+                if normalized in {"1", "true", "yes", "on"}:
+                    self.settings_vars["responseFormat"].set(True)
+                elif normalized in {"0", "false", "no", "off"}:
+                    self.settings_vars["responseFormat"].set(False)
 
-        api_base_url = (os.getenv("API_BASE_URL") or "").strip()
-        if api_base_url:
-            self.settings_vars["apiBase"].set(api_base_url)
+        api_base = str(payload.get("apiBase", "")).strip()
+        if api_base:
+            self.settings_vars["apiBase"].set(api_base)
 
-        log_level = (os.getenv("LOG_LEVEL") or "").strip().upper()
+        log_level = str(payload.get("logLevel", "")).strip().upper()
         if log_level in {"INFO", "DEBUG"}:
             self.settings_vars["logLevel"].set(log_level)
 
-        timeout = (os.getenv("TIMEOUT") or "").strip()
+        timeout = str(payload.get("timeout", "")).strip()
         if timeout.isdigit() and int(timeout) >= 1:
             self.settings_vars["timeout"].set(timeout)
+
+    def _load_api_key_from_keyring(self) -> None:
+        try:
+            api_key = keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME) or ""
+        except KeyringError as exc:
+            messagebox.showwarning(
+                "Keyring Warning",
+                (
+                    "Could not load API key from the OS secure store.\n"
+                    f"{exc}"
+                ),
+                parent=self.root,
+            )
+            return
+        self.settings_vars["apiKey"].set(api_key)
 
     def _setup_style(self) -> None:
         style = ttk.Style()
@@ -285,7 +331,7 @@ class ThreatGUI:
         open_frame.grid(row=2, column=0, sticky="ew", padx=5, pady=(0, 5))
         open_frame.columnconfigure(1, weight=1)
 
-        ttk.Button(open_frame, text="Open Model", bootstyle=PRIMARY, command=self.open_model).grid(
+        ttk.Button(open_frame, text="Open Model", bootstyle="info", command=self.open_model).grid(
             row=0, column=0, sticky="w"
         )
         ttk.Label(open_frame, textvariable=self.model_path, bootstyle=SECONDARY).grid(
@@ -305,9 +351,15 @@ class ThreatGUI:
         ttk.Button(
             generate_frame,
             text="Clear Console",
-            bootstyle=SECONDARY,
+            bootstyle="info",
             command=self.clear_console,
         ).grid(row=1, column=0, sticky="ew", pady=(6, 0))
+        ttk.Button(
+            generate_frame,
+            text="Save Config",
+            bootstyle="info",
+            command=self.save_config,
+        ).grid(row=2, column=0, sticky="ew", pady=(6, 0))
 
         console_frame = ttk.Frame(main_frame, padding=10)
         console_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=5, pady=5)
@@ -472,17 +524,93 @@ class ThreatGUI:
             default=messagebox.CANCEL,
         )
 
+    def _parse_temperature(self) -> float:
+        temperature_str = self.settings_vars["temperature"].get().strip()
+        if not temperature_str:
+            return 0.1
+        temperature = float(temperature_str)
+        if not (0.0 <= temperature <= 2.0):
+            raise ValueError("Temperature must be between 0 and 2.")
+        return temperature
+
+    def _parse_timeout(self) -> int:
+        timeout_str = self.settings_vars["timeout"].get().strip()
+        if not timeout_str:
+            return 900
+        timeout = int(timeout_str)
+        if timeout < 1:
+            raise ValueError("Timeout must be at least 1 second.")
+        return timeout
+
+    def _build_config_payload(self) -> Dict[str, Any]:
+        return {
+            "llmModel": self.settings_vars["llmModel"].get().strip(),
+            "temperature": self._parse_temperature(),
+            "responseFormat": self.settings_vars["responseFormat"].get(),
+            "apiBase": self.settings_vars["apiBase"].get().strip(),
+            "logLevel": self.settings_vars["logLevel"].get().strip().upper() or "INFO",
+            "timeout": self._parse_timeout(),
+        }
+
+    def _save_api_key_to_keyring(self, api_key: str) -> None:
+        if api_key:
+            keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, api_key)
+            return
+
+        try:
+            keyring.delete_password(KEYRING_SERVICE, KEYRING_USERNAME)
+        except PasswordDeleteError:
+            # No previously saved key; nothing to remove.
+            pass
+
+    def save_config(self) -> None:
+        try:
+            payload = self._build_config_payload()
+        except Exception as exc:
+            messagebox.showerror("Invalid Configuration", str(exc), parent=self.root)
+            return
+
+        api_key = self.settings_vars["apiKey"].get().strip()
+
+        try:
+            CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with CONFIG_FILE.open("w", encoding="utf-8") as file:
+                json.dump(payload, file, indent=2)
+            self._save_api_key_to_keyring(api_key)
+        except KeyringError as exc:
+            messagebox.showerror(
+                "Save Error",
+                (
+                    f"Config file was saved to:\n{CONFIG_FILE}\n\n"
+                    "But API key could not be saved in the OS secure store:\n"
+                    f"{exc}"
+                ),
+                parent=self.root,
+            )
+            return
+        except Exception as exc:
+            messagebox.showerror("Save Error", str(exc), parent=self.root)
+            return
+
+        api_key_status = (
+            "API key saved in OS secure store."
+            if api_key
+            else "API key removed from OS secure store."
+        )
+        self._append_console(f"Configuration saved to: {CONFIG_FILE} | {api_key_status}")
+        messagebox.showinfo(
+            "Configuration Saved",
+            f"Configuration saved to:\n{CONFIG_FILE}\n\n{api_key_status}",
+            parent=self.root,
+        )
+
     def _build_runtime_config(self) -> RuntimeConfig:
         if not self.model_file:
             raise ValueError("Please load a threat model JSON first.")
         if not self.settings_vars["llmModel"].get().strip():
             raise ValueError("LLM model is required.")
-
-        timeout_str = self.settings_vars["timeout"].get().strip()
-        temp_str = self.settings_vars["temperature"].get().strip()
-
-        timeout = int(timeout_str) if timeout_str else 900
-        temperature = float(temp_str) if temp_str else 0.1
+        timeout = self._parse_timeout()
+        temperature = self._parse_temperature()
 
         log_level_name = self.settings_vars["logLevel"].get().strip().upper() or "INFO"
         log_level = getattr(logging, log_level_name, logging.INFO)

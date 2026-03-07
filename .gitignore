@@ -211,3 +211,6 @@ __marimo__/
 
 # Except this specific file
 !/input/owasp.threat-dragon.schema.V2.json
+
+# Ingnore config.json
+config.json

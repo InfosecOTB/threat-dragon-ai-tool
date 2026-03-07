@@ -19,11 +19,37 @@ Generating threats and mitigations is a complex task that requires capable model
 
 You can read more about testing different models and its results in my blog [AI-Powered Threat Modeling with OWASP Threat Dragon – Part 2: Generating Threats with Artificial Intelligence](https://infosecotb.com/ai-powered-threat-modeling-with-owasp-threat-dragon-part-2-generating-threats-with-artificial-intelligence/) 
 
-## Installation
-Copy `td-ai-tool.exe` to a folder and run it. 
+## Installation and Run
+
+Download the correct archive for your system from **GitHub Releases**, then extract it.
+
+### Windows
+Open the extracted folder and run:
+
+```text
+td-ai-tool.exe
+```
+
+### macOS
+Open the extracted folder and run the app.  
+If needed, right-click the app and choose **Open**.
+
+### Linux
+Open a terminal in the extracted folder and run:
+
+```bash
+chmod +x td-ai-tool
+./td-ai-tool
+```
+
+## Important
+
+`td-ai-tool` is built in **PyInstaller `--onedir`** mode, so you must keep the whole extracted folder together.  
+Do not move only the executable file out of the folder.
+
 
 ### Instructions
-1. **Configure** - Adjust the LLM model, temperature, API key and other settings in the left panel if needed. Settings from `.env` are pre-filled.
+1. **Configure** - Adjust the LLM model, temperature, API key and other settings in the left panel if needed.
 
    ![Settings panel](assets/settings.png)
 
@@ -36,32 +62,9 @@ Copy `td-ai-tool.exe` to a folder and run it.
    - `Log Level` - Logging level: `INFO` or `DEBUG`.
    - `Timeout` - Request timeout in seconds for LLM API calls. Default: `900` seconds (`15` minutes).
 
-
-   Creating a `.env` file in the same folder as `td-ai-tool.exe` is optional; if present, the application will read settings from it. You can also enter settings in the application, but they are lost when you close it. For security and simplicity, saving settings from inside the application is not supported at this time.
-
-### Optional `.env` variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LLM_MODEL` | *(empty)* | LiteLLM model identifier |
-| `API_KEY` | *(empty)* | Generic API key (auto-mapped to the right provider env var) |
-| `API_BASE_URL` | *(empty)* | Custom API endpoint |
-| `TEMPERATURE` | `0.1` | LLM temperature (0.0–2.0) |
-| `RESPONSE_FORMAT` | `true` | Enforce JSON schema validation on the LLM response |
-| `LOG_LEVEL` | `INFO` | `INFO` or `DEBUG` |
-| `TIMEOUT` | `900` | Request timeout in seconds |
-
-Example:
-
-```dotenv
-API_KEY="sk-proj-your_key"
-LLM_MODEL=openai/gpt-5.2
-TEMPERATURE=0.1
-RESPONSE_FORMAT=true
-API_BASE_URL=
-LOG_LEVEL=INFO
-TIMEOUT=900
-```
+   Click **Save Config** to persist settings.
+   - Non-secret settings are saved to `config.json` in the same folder as the executable.
+   - The API key is saved separately in the OS secure credential store (via `keyring`) and is not written to `config.json`.
 
 2. **Open a model** - Click *Open Model* (or File → Open Model) and select a Threat Dragon `.json` file.
 
@@ -113,8 +116,7 @@ threat-dragon-ai-tool/
 │   ├── models.py         # Pydantic models for the AI response format
 │   └── utils.py          # JSON file I/O, threat merging
 ├── prompt.txt            # System prompt template sent to the LLM
-├── requirements.txt
-└── env.example           # Example .env configuration
+└── requirements.txt
 ```
 
 ## Build and Release
@@ -168,12 +170,13 @@ python -m PyInstaller \
   --windowed \
   --noupx \
   --name "td-ai-tool" \
-  --icon "assets/favicon-512x512.png" \
   --add-data "assets:assets" \
   --add-data "prompt.txt:." \
   --collect-all ttkbootstrap \
   --collect-all litellm \
+  --collect-all PIL \
   --hidden-import "tiktoken_ext.openai_public" \
+  --hidden-import "PIL._tkinter_finder" \
   src/main.py
 ```
 
@@ -206,7 +209,7 @@ python -m PyInstaller \
 - **[LiteLLM](https://github.com/BerriAI/litellm)** - unified API wrapper that lets you swap LLM providers without changing code.
 - **[Pydantic](https://docs.pydantic.dev/)** - validates and parses the structured JSON that comes back from the LLM.
 - **[ttkbootstrap](https://ttkbootstrap.readthedocs.io/)** - modern-looking Tkinter theme for the GUI.
-- **[python-dotenv](https://github.com/theskumar/python-dotenv)** - loads `.env` defaults on startup.
+- **[keyring](https://github.com/jaraco/keyring)** - stores API keys in the OS credential manager.
 
 ## License
 This project is licensed under the Apache 2.0 License - see the LICENSE file for details.
@@ -218,5 +221,3 @@ This project is licensed under the Apache 2.0 License - see the LICENSE file for
 
 ## Additional Resources
 For more information about cybersecurity and AI projects, visit my blog at https://infosecotb.com.
-
-
