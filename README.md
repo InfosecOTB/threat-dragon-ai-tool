@@ -35,7 +35,7 @@ python src/main.py
 
 ## Important
 
-`td-ai-tool` is built in **PyInstaller `--onedir`** mode, so you must keep the whole extracted folder together.  
+`td-ai-tool` for Windows is built in **PyInstaller `--onedir`** mode, so you must keep the whole extracted folder together.  
 Do not move only the executable file out of the folder.
 
 
