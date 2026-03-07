@@ -33,13 +33,13 @@ pip install -r requirements.txt
 python src/main.py
 ```
 
-## Important
+### Important
 
 `td-ai-tool` for Windows is built in **PyInstaller `--onedir`** mode, so you must keep the whole extracted folder together.  
 Do not move only the executable file out of the folder.
 
 
-### Instructions
+## Instructions
 1. **Configure** - Adjust the LLM model, temperature, API key and other settings in the left panel if needed.
 
    ![Settings panel](assets/settings.png)
@@ -116,7 +116,7 @@ threat-dragon-ai-tool/
 
 Before building the executable, make sure Python is installed on your system.
 
-This project is packaged with **PyInstaller** in `--onedir` mode for faster startup.
+This project, in version for Windows, is packaged with **PyInstaller** in `--onedir` mode for faster startup.
 
 ---
 
@@ -204,6 +204,7 @@ python -m PyInstaller \
 
 ## License
 This project is licensed under the Apache 2.0 License - see the LICENSE file for details.
+Third-party dependency notices are listed in `THIRD_PARTY_NOTICES.md`.
 
 ## Acknowledgments
 - **[OWASP Threat Dragon](https://owasp.org/www-project-threat-dragon/)** for the excellent threat modeling framework
