@@ -15,7 +15,7 @@ You open a Threat Dragon `.json` model file, pick an AI provider, and the tool a
 
 The application uses the LiteLLM library, so any provider/model supported by LiteLLM should work. Use the [LiteLLM naming convention](https://docs.litellm.ai/docs/providers) (`provider/model`).
 
-Generating threats and mitigations is a complex task that requires capable models. For good results, use a model with at least 400M parameters. The best results were achieved with Anthropic Claude, OpenAI GPT, and xAI Grok. Self-hosted DeepSeek and Qwen also produced good results in testing.
+Generating threats and mitigations is a complex task that requires capable models. For good results, use a model with at least 400B parameters. The best results were achieved with Anthropic Claude, OpenAI GPT, and xAI Grok. Self-hosted DeepSeek and Qwen also produced good results in testing.
 
 You can read more about testing different models and its results in my blog [AI-Powered Threat Modeling with OWASP Threat Dragon – Part 2: Generating Threats with Artificial Intelligence](https://infosecotb.com/ai-powered-threat-modeling-with-owasp-threat-dragon-part-2-generating-threats-with-artificial-intelligence/) 
 
