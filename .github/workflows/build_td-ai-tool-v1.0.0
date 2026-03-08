@@ -1,0 +1,175 @@
+name: Build app
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Build with PyInstaller on Windows
+        shell: pwsh
+        run: |
+          py -m venv .venv
+          .\.venv\Scripts\Activate.ps1
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+          py -m PyInstaller `
+            --noconfirm `
+            --clean `
+            --onedir `
+            --windowed `
+            --noupx `
+            --name "td-ai-tool" `
+            --icon "assets\favicon.ico" `
+            --add-data "assets;assets" `
+            --add-data "prompt.txt;." `
+            --collect-all ttkbootstrap `
+            --collect-all litellm `
+            --hidden-import "tiktoken_ext.openai_public" `
+            src\main.py
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: td-ai-tool-v1.0.0-windows-x64
+          path: dist/td-ai-tool
+
+  build-macos-arm64:
+    runs-on: macos-15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Build with PyInstaller on macOS arm64
+        shell: bash
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+          python -m PyInstaller \
+            --noconfirm \
+            --clean \
+            --onefile \
+            --windowed \
+            --noupx \
+            --target-arch arm64 \
+            --name "td-ai-tool" \
+            --icon "assets/favicon.icns" \
+            --add-data "assets:assets" \
+            --add-data "prompt.txt:." \
+            --collect-all ttkbootstrap \
+            --collect-all litellm \
+            --hidden-import "tiktoken_ext.openai_public" \
+            src/main.py
+
+      - name: Upload macOS arm64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: td-ai-tool-v1.0.0-macos-arm64
+          path: dist/td-ai-tool
+
+  build-macos-x64:
+    runs-on: macos-15-intel
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Build with PyInstaller on macOS x86_64
+        shell: bash
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+          python -m PyInstaller \
+            --noconfirm \
+            --clean \
+            --onefile \
+            --windowed \
+            --noupx \
+            --target-arch x86_64 \
+            --name "td-ai-tool" \
+            --icon "assets/favicon.icns" \
+            --add-data "assets:assets" \
+            --add-data "prompt.txt:." \
+            --collect-all ttkbootstrap \
+            --collect-all litellm \
+            --hidden-import "tiktoken_ext.openai_public" \
+            src/main.py
+
+      - name: Upload macOS x86_64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: td-ai-tool-v1.0.0-macos-x64
+          path: dist/td-ai-tool
+
+  build-linux:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Build with PyInstaller on Linux
+        shell: bash
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+          python -m PyInstaller \
+            --noconfirm \
+            --clean \
+            --onefile \
+            --windowed \
+            --noupx \
+            --name "td-ai-tool" \
+            --add-data "assets:assets" \
+            --add-data "prompt.txt:." \
+            --collect-all ttkbootstrap \
+            --collect-all litellm \
+            --collect-all PIL \
+            --hidden-import "tiktoken_ext.openai_public" \
+            --hidden-import "PIL._tkinter_finder" \
+            src/main.py
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: td-ai-tool-v1.0.0-linux-ubuntu-x64
+          path: dist/td-ai-tool
