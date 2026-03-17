@@ -36,7 +36,7 @@ class ThreatGUI:
         self._icon_images: List[PhotoImage] = []
         self._saved_config_state: Dict[str, Any] = {}
         self.root.title("Threat Dragon AI Threats & Mitigations Generator")
-        self.root.geometry("1200x720")
+        self.root.geometry("1200x780")
         self._set_app_icons()
 
         self.root.rowconfigure(0, weight=1)
