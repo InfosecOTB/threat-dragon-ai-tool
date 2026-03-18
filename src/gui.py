@@ -460,15 +460,15 @@ class ThreatGUI:
         info_blue = getattr(getattr(style, "colors", None), "info", "#0D6EFD")
         info_icon = tk.Canvas(
             title_frame,
-            width=12,
-            height=12,
+            width=14,
+            height=14,
             highlightthickness=0,
             bd=0,
             bg=frame_bg,
             cursor="hand2",
         )
-        info_icon.create_oval(1, 1, 11, 11, fill=info_blue, outline=info_blue)
-        info_icon.create_text(6, 6, text="i", fill="white", font=("Segoe UI", 7, "bold"))
+        info_icon.create_oval(1, 1, 14, 14, fill=info_blue, outline=info_blue)
+        info_icon.create_text(7, 7, text="i", fill="white", font=("Segoe UI", 8, "bold"))
         info_icon.pack(side="left", padx=(0, 6))
         self._bind_setting_description(info_icon, description)
 
