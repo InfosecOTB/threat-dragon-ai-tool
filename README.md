@@ -207,7 +207,7 @@ This project is licensed under the Apache 2.0 License - see the LICENSE file for
 Third-party dependency notices are listed in `THIRD_PARTY_NOTICES.md`.
 
 ## Acknowledgments
-- **Special Thanks** to Jon Gadsden (@jgadsden) and Leo Lreading (@lreading) from the OWASP Threat Dragon community for their support and encouragement.
+- **Special Thanks** to [Jon Gadsden](https://github.com/jgadsden) and [Leo Lreading](https://github.com/lreading) from the OWASP Threat Dragon community for their support and encouragement.
 - **[OWASP Threat Dragon](https://owasp.org/www-project-threat-dragon/)** for the excellent threat modeling framework
 - **[LiteLLM](https://github.com/BerriAI/litellm)** for seamless multi-LLM support
 - **[Pydantic](https://pydantic.dev/)** for robust data validation
