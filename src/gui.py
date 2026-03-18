@@ -363,9 +363,13 @@ class ThreatGUI:
         ttk.Button(open_frame, text="Open Model", bootstyle="info", command=self.open_model).grid(
             row=0, column=0, sticky="w"
         )
-        ttk.Label(open_frame, textvariable=self.model_path, bootstyle=SECONDARY).grid(
-            row=0, column=1, sticky="ew", padx=(10, 0)
-        )
+        ttk.Label(
+            open_frame,
+            textvariable=self.model_path,
+            bootstyle=SECONDARY,
+            width=50,
+            anchor="w",
+        ).grid(row=0, column=1, sticky="w", padx=(10, 0))
 
         generate_frame = ttk.Frame(left)
         generate_frame.grid(row=3, column=0, sticky="ew", padx=5, pady=5)
@@ -585,7 +589,7 @@ class ThreatGUI:
             return
 
         self.model_file = selected
-        self.model_path.set(str(selected))
+        self.model_path.set(str(selected)[-50:])
         self._append_console(f"Loaded model: {selected}")
 
     def show_about(self) -> None:
