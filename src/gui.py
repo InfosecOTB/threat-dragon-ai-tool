@@ -424,16 +424,31 @@ class ThreatGUI:
             menu.add_command(label="Cut", command=lambda: widget.event_generate("<<Cut>>"))
         menu.add_separator()
 
+        def select_all_text(_event=None) -> str:
+            widget.tag_add("sel", "1.0", "end-1c")
+            return "break"
+
+        def select_all_entry(_event=None) -> str:
+            widget.select_range(0, "end")
+            return "break"
+
+        # Bind only the native select-all shortcut for this platform.
+        is_macos = sys.platform == "darwin"
         if isinstance(widget, tk.Text):
             menu.add_command(
                 label="Select All",
                 command=lambda: widget.tag_add("sel", "1.0", "end-1c"),
             )
-            widget.bind("<Control-a>", lambda e: (widget.tag_add("sel", "1.0", "end-1c"), "break"))
-            widget.bind("<Command-a>", lambda e: (widget.tag_add("sel", "1.0", "end-1c"), "break"))
+            if is_macos:
+                widget.bind("<Command-a>", select_all_text)
+            else:
+                widget.bind("<Control-a>", select_all_text)
         else:
             menu.add_command(label="Select All", command=lambda: widget.select_range(0, "end"))
-            widget.bind("<Command-a>", lambda e: (widget.select_range(0, "end"), "break"))
+            if is_macos:
+                widget.bind("<Command-a>", select_all_entry)
+            else:
+                widget.bind("<Control-a>", select_all_entry)
 
         def show_menu(event) -> str:
             try:
