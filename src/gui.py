@@ -16,15 +16,18 @@ from tkinter import filedialog, messagebox, PhotoImage
 import keyring
 from keyring.errors import KeyringError, PasswordDeleteError
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import SECONDARY, SUCCESS
+from ttkbootstrap.constants import PRIMARY, SECONDARY, SUCCESS
+from ttkbootstrap.style import PRIMARY
 
 from app_paths import ASSETS_DIR, CONFIG_FILE
 from runtime import RuntimeConfig, run_threat_modeling
 
 APP_NAME = "Threat Dragon AI Tool"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 DOCS_URL = "https://github.com/InfosecOTB/threat-dragon-ai-tool"
 BLOG_URL = "https://infosecotb.com"
+THREAT_DRAGON_DOCS_URL = "https://www.threatdragon.com/docs"
+ISSUES_URL = "https://github.com/InfosecOTB/threat-dragon-ai-tool/issues/new"
 KEYRING_SERVICE = "threat-dragon-ai-tool"
 KEYRING_USERNAME = "api_key"
 
@@ -35,6 +38,8 @@ class ThreatGUI:
         self._icon_ico_path: Optional[Path] = None
         self._icon_images: List[PhotoImage] = []
         self._saved_config_state: Dict[str, Any] = {}
+        self._setting_description_popup: Optional[tk.Toplevel] = None
+        self._setting_description_popup_label: Optional[ttk.Label] = None
         self.root.title("Threat Dragon AI Threats & Mitigations Generator")
         self.root.geometry("1200x780")
         self._set_app_icons()
@@ -189,7 +194,12 @@ class ThreatGUI:
         run_menu.add_command(label="Generate Threat & Mitigation", command=self.run_main_script)
 
         help_menu = tk.Menu(menubar, tearoff=0)
-        help_menu.add_command(label="Documentation", command=self.open_documentation)
+        help_menu.add_command(label="AI Tool Documentation", command=self.open_documentation)
+        help_menu.add_command(
+            label="Threat Dragon Documentation",
+            command=self.open_threat_dragon_documentation,
+        )
+        help_menu.add_command(label="Submit an issue", command=self.open_issue_submission)
         help_menu.add_command(label="Blog", command=self.open_blog)
         help_menu.add_separator()
         help_menu.add_command(label="About", command=self.show_about)
@@ -258,6 +268,16 @@ class ThreatGUI:
         vcmd_temp = (self.root.register(validate_temperature), "%d", "%P")
         vcmd_timeout = (self.root.register(validate_timeout), "%d", "%P")
 
+        setting_descriptions = {
+            "API Key": 'API key for accessing the LLM service',
+            "LLM Model": 'LLM model identifier in the format "provider/model" (e.g., "openai/gpt-5", "anthropic/claude-sonnet-4-5", "xai/grok-4")',
+            "Temperature (0-2)": 'Temperature parameter for LLM - lower values make output more deterministic, higher values increase creativity and randomness (range: 0-2)',
+            "Response Format": 'Enables structured JSON output. Recommended for supported models such as openai/gpt-5 or xai/grok-4. If enabled for an unsupported model, the request may fail.',
+            "API Base URL": 'Custom API base URL. Most hosted AI providers do not require this because LiteLLM handles it automatically.',
+            "Log Level": 'Logging level (INFO or DEBUG)',
+            "Timeout (seconds)": 'Request timeout in seconds for LLM API calls (default: 900 seconds = 15 minutes)',
+        }
+
         settings_fields = [
             ("LLM Model", "entry", self.settings_vars["llmModel"], None),
             ("Temperature (0-2)", "entry", self.settings_vars["temperature"], vcmd_temp),
@@ -268,8 +288,8 @@ class ThreatGUI:
         ]
 
         row_index = 0
-        ttk.Label(settings_frame, text="API Key").grid(
-            row=row_index, column=0, sticky="w", pady=4, padx=(0, 8)
+        self._create_setting_title(
+            settings_frame, row_index, "API Key", setting_descriptions["API Key"]
         )
         self.api_key_entry = ttk.Entry(
             settings_frame,
@@ -300,8 +320,11 @@ class ThreatGUI:
         row_index += 1
 
         for label_text, field_type, var, extra in settings_fields:
-            ttk.Label(settings_frame, text=label_text).grid(
-                row=row_index, column=0, sticky="w", pady=4, padx=(0, 8)
+            self._create_setting_title(
+                settings_frame,
+                row_index,
+                label_text,
+                setting_descriptions[label_text],
             )
 
             if field_type == "entry":
@@ -315,7 +338,10 @@ class ThreatGUI:
                 self._attach_text_context_menu(entry)
 
             elif field_type == "checkbox":
-                ttk.Checkbutton(settings_frame, variable=var, onvalue=True, offvalue=False).grid(
+                checkbox = ttk.Checkbutton(
+                    settings_frame, variable=var, onvalue=True, offvalue=False
+                )
+                checkbox.grid(
                     row=row_index, column=1, sticky="w", pady=4
                 )
 
@@ -419,6 +445,82 @@ class ThreatGUI:
         widget.bind("<ButtonRelease-3>", show_menu)
         widget.bind("<Control-ButtonRelease-1>", show_menu)
 
+    def _create_setting_title(
+        self,
+        parent: tk.Widget,
+        row_index: int,
+        title: str,
+        description: str,
+    ) -> None:
+        title_frame = ttk.Frame(parent)
+        title_frame.grid(row=row_index, column=0, sticky="w", pady=4, padx=(0, 8))
+
+        style = ttk.Style()
+        frame_bg = style.lookup("TFrame", "background") or self.root.cget("bg")
+        info_blue = getattr(getattr(style, "colors", None), "info", "#0D6EFD")
+        info_icon = tk.Canvas(
+            title_frame,
+            width=12,
+            height=12,
+            highlightthickness=0,
+            bd=0,
+            bg=frame_bg,
+            cursor="hand2",
+        )
+        info_icon.create_oval(1, 1, 11, 11, fill=info_blue, outline=info_blue)
+        info_icon.create_text(6, 6, text="i", fill="white", font=("Segoe UI", 7, "bold"))
+        info_icon.pack(side="left", padx=(0, 6))
+        self._bind_setting_description(info_icon, description)
+
+        ttk.Label(title_frame, text=title).pack(side="left")
+
+    def _bind_setting_description(self, widget: tk.Widget, description: str) -> None:
+        widget.bind(
+            "<Enter>",
+            lambda event: self._show_setting_description(description, event),
+            add="+",
+        )
+        widget.bind(
+            "<Motion>",
+            lambda event: self._move_setting_description(event),
+            add="+",
+        )
+        widget.bind("<Leave>", lambda _event: self._clear_setting_description(), add="+")
+
+    def _show_setting_description(self, description: str, event: tk.Event) -> None:
+        if self._setting_description_popup is None:
+            popup = tk.Toplevel(self.root)
+            popup.overrideredirect(True)
+            popup.attributes("-topmost", True)
+            label = ttk.Label(
+                popup,
+                text=description,
+                justify="left",
+                wraplength=460,
+                padding=(8, 6),
+                bootstyle=PRIMARY,
+            )
+            label.pack()
+            self._setting_description_popup = popup
+            self._setting_description_popup_label = label
+        elif self._setting_description_popup_label is not None:
+            self._setting_description_popup_label.configure(text=description)
+
+        self._move_setting_description(event)
+
+    def _move_setting_description(self, event: tk.Event) -> None:
+        if self._setting_description_popup is None:
+            return
+        x = event.x_root + 14
+        y = event.y_root + 20
+        self._setting_description_popup.geometry(f"+{x}+{y}")
+
+    def _clear_setting_description(self) -> None:
+        if self._setting_description_popup is not None:
+            self._setting_description_popup.destroy()
+            self._setting_description_popup = None
+            self._setting_description_popup_label = None
+
     def _append_console(self, text: str) -> None:
         self.console.configure(state="normal")
         if text.startswith("\r"):
@@ -496,6 +598,10 @@ class ThreatGUI:
                 "for OWASP Threat Dragon models using LLMs.\n\n"
                 "License: Apache License 2.0\n"
                 "Created by Piotr Kowalczyk\n"
+                "\n"
+                "Special Thanks\n"
+                "A special thanks to Jon Gadsden and Leo lreading from the OWASP Threat Dragon community for their support and encouragement.\n"
+                "\n"
                 f"{BLOG_URL}"
             ),
             parent=self.root,
@@ -513,6 +619,12 @@ class ThreatGUI:
 
     def open_documentation(self) -> None:
         self._open_external_link(DOCS_URL, "documentation")
+
+    def open_threat_dragon_documentation(self) -> None:
+        self._open_external_link(THREAT_DRAGON_DOCS_URL, "Threat Dragon documentation")
+
+    def open_issue_submission(self) -> None:
+        self._open_external_link(ISSUES_URL, "issue submission page")
 
     def open_blog(self) -> None:
         self._open_external_link(BLOG_URL, "blog")
