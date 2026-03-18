@@ -85,7 +85,7 @@ class ThreatGUI:
             "apiKey": tk.StringVar(value=""),
             "llmModel": tk.StringVar(value=""),
             "temperature": tk.StringVar(value="0.1"),
-            "responseFormat": tk.BooleanVar(value=True),
+            "responseFormat": tk.BooleanVar(value=False),
             "apiBase": tk.StringVar(value=""),
             "logLevel": tk.StringVar(value="INFO"),
             "timeout": tk.StringVar(value="900"),
