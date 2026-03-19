@@ -1,32 +1,33 @@
-name: Build app
+name: Build threat-dragon-ai-tool release app
 
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 jobs:
   build-windows:
     runs-on: windows-latest
-
+  
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
+  
       - name: Set up Python 3.14
         uses: actions/setup-python@v5
         with:
           python-version: "3.14"
-
-      - name: Build with PyInstaller on Windows
+  
+      - name: Install dependencies
         shell: pwsh
         run: |
           py -m venv .venv
           .\.venv\Scripts\Activate.ps1
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
-
+  
+      - name: Build onedir
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\Activate.ps1
           py -m PyInstaller `
             --noconfirm `
             --clean `
@@ -41,12 +42,37 @@ jobs:
             --collect-all litellm `
             --hidden-import "tiktoken_ext.openai_public" `
             src\main.py
-
-      - name: Upload Windows artifact
+  
+      - name: Build onefile
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\Activate.ps1
+          py -m PyInstaller `
+            --noconfirm `
+            --clean `
+            --onefile `
+            --windowed `
+            --noupx `
+            --name "td-ai-tool-onefile" `
+            --icon "assets\favicon.ico" `
+            --add-data "assets;assets" `
+            --add-data "prompt.txt;." `
+            --collect-all ttkbootstrap `
+            --collect-all litellm `
+            --hidden-import "tiktoken_ext.openai_public" `
+            src\main.py
+  
+      - name: Upload onedir artifact
         uses: actions/upload-artifact@v4
         with:
-          name: td-ai-tool-v1.0.1-windows-x64
+          name: td-ai-tool-v1.0.1-windows-x64-onedir
           path: dist/td-ai-tool
+  
+      - name: Upload onefile artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: td-ai-tool-v1.0.1-windows-x64-onefile
+          path: dist/td-ai-tool-onefile.exe
 
   build-macos-arm64:
     runs-on: macos-15
