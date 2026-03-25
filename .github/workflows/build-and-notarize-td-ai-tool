@@ -1,0 +1,135 @@
+name: Build and notarize macOS release app
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    name: Build macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+            artifact_name: td-ai-tool-v1.0.1-macos-arm64
+            zip_name: td-ai-tool-v1.0.1-macos-arm64.zip
+          - arch: x86_64
+            runner: macos-15-intel
+            artifact_name: td-ai-tool-v1.0.1-macos-x64
+            zip_name: td-ai-tool-v1.0.1-macos-x64.zip
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Import Apple code-signing certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_DEV_ID_APP_CERT_BASE64 }}
+          p12-password: ${{ secrets.APPLE_DEV_ID_APP_CERT_PASSWORD }}
+
+      - name: Build with PyInstaller
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          python3 -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+          python -m PyInstaller \
+            --noconfirm \
+            --clean \
+            --windowed \
+            --noupx \
+            --target-arch "${{ matrix.arch }}" \
+            --name "td-ai-tool" \
+            --icon "assets/favicon.icns" \
+            --add-data "assets:assets" \
+            --add-data "prompt.txt:." \
+            --collect-all ttkbootstrap \
+            --collect-all litellm \
+            --hidden-import "tiktoken_ext.openai_public" \
+            src/main.py
+
+          ls -la dist
+          ls -la "dist/td-ai-tool.app"
+
+      - name: Sign app bundle
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euxo pipefail
+
+          APP_PATH="dist/td-ai-tool.app"
+
+          # Remove quarantine attributes if present
+          xattr -cr "$APP_PATH"
+
+          # Sign the full app bundle
+          codesign --force --deep --options runtime --timestamp \
+            --sign "$APPLE_SIGNING_IDENTITY" \
+            "$APP_PATH"
+
+          # Verify signature
+          codesign --verify --deep --strict --verbose=4 "$APP_PATH"
+          codesign -dv --verbose=4 "$APP_PATH"
+
+      - name: Package app for notarization
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          ditto -c -k --keepParent \
+            "dist/td-ai-tool.app" \
+            "dist/${{ matrix.zip_name }}"
+
+          ls -lh "dist/${{ matrix.zip_name }}"
+
+      - name: Submit for notarization
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          set -euxo pipefail
+
+          xcrun notarytool submit "dist/${{ matrix.zip_name }}" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --wait
+
+      - name: Staple notarization ticket
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          xcrun stapler staple "dist/td-ai-tool.app"
+          xcrun stapler validate "dist/td-ai-tool.app"
+
+      - name: Verify Gatekeeper assessment
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          spctl -a -vvv --type exec "dist/td-ai-tool.app"
+
+      - name: Upload notarized macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            dist/td-ai-tool.app
+            dist/${{ matrix.zip_name }}
